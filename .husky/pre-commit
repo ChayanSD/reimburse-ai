@@ -8,7 +8,7 @@ echo "✅ Building Passed"
 
 echo "checking if commiting directly to main..."
 branch="$(git rev-parse --abbrev-ref HEAD)"
-user="$(whoami)"
+user="$(git config user.name | xargs)"
 
 if [ "$branch" = "main" ] && [ "$user" != "Chayan SD" ]; then
   echo "❌ Only 'Chayan SD' can commit directly to main branch , cause he is the senior software engineer😂"
