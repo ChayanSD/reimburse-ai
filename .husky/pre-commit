@@ -1,2 +1,17 @@
-bun run lint
+echo "Linting the code..."
+bun lint
+echo "✅ Linting Passed"
+
+echo "Building the code..."
 bun run build
+echo "✅ Building Passed"
+
+echo "checking if commiting directly to main..."
+branch="$(git rev-parse --abbrev-ref HEAD)"
+user="$(whoami)"
+
+if [ "$branch" = "main" ] && [ "$user" != "Chayan SD" ]; then
+  echo "❌ Only 'Chayan SD' can commit directly to main branch , cause he is the senior software engineer😂"
+  exit 1
+fi
+echo "✅ Commiting directly to main Passed"
