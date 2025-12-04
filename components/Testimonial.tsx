@@ -67,6 +67,8 @@ export default function Testimonial() {
                       filter:
                         "sepia(10%) saturate(110%) hue-rotate(5deg) brightness(105%)",
                     }}
+                    width={400}
+                    height={400}
                   />
                 </div>
               </div>

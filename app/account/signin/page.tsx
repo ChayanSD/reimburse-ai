@@ -74,6 +74,8 @@ export default function SignInPage() {
                 src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/"
                 alt="ReimburseMe Logo"
                 className="w-16 h-16"
+                width={40}
+                height={40}
               />
             </div>
             <h1

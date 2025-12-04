@@ -5,7 +5,19 @@ const nextConfig: NextConfig = {
   /* config options here */
   turbopack : {
     root : path.join(__dirname, "..")
-  }
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "ucarecdn.com",
+      },
+      {
+        protocol: "https",
+        hostname: "images.pexels.com",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

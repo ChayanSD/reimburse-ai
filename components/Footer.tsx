@@ -42,6 +42,8 @@ const Footer: React.FC<FooterProps> = ({ className }) => {
                 src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/"
                 alt="ReimburseMe Logo"
                 className="w-10 h-10"
+                width={40}
+                height={40}
               />
               <span
                 className="text-gray-900 text-[18px] font-bold"
