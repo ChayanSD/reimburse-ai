@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
+import Image from "next/image";
 
 
 interface SignInFormData {
@@ -69,7 +70,7 @@ export default function SignInPage() {
           {/* Logo and Brand */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
-              <img
+              <Image
                 src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/"
                 alt="ReimburseMe Logo"
                 className="w-16 h-16"
