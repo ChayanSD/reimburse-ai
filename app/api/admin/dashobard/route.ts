@@ -1,4 +1,4 @@
-import { NextResponse, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 
@@ -243,7 +243,7 @@ async function detectAnomalies() {
   return anomalies;
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(): Promise<NextResponse> {
   try {
     const session = await getSession();
     

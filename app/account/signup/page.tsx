@@ -197,13 +197,7 @@ export default function SignUpPage() {
   };
 
   return (
-    <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
-
-      <div
+    <div
         className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-4"
         style={{ fontFamily: "Inter, system-ui, sans-serif" }}
       >
@@ -455,6 +449,5 @@ export default function SignUpPage() {
           </div>
         </div>
       </div>
-    </>
   );
 }
