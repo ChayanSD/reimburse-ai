@@ -6,6 +6,7 @@ export interface SessionUser {
   id: number;
   name: string;
   email: string;
+  role: 'ADMIN' | 'USER';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +22,7 @@ export async function createSession(user: SessionUser): Promise<string> {
     id: user.id,
     name: user.name,
     email: user.email,
+    role: user.role,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) : Promise<NextResponse> {
       );
     }
 
-    const { email, password, firstName, lastName } = validationResult.data;
+    const { email, password, firstName, lastName, role = 'USER' } = validationResult.data;
 
     const existingUser = await prisma.authUser.findUnique({
       where: { email },
@@ -39,12 +39,14 @@ export async function POST(request: NextRequest) : Promise<NextResponse> {
         password: hashedPassword,
         firstName,
         lastName,
+        role,
       },
       select: {
         id: true,
         email: true,
         firstName: true,
         lastName: true,
+        role: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) : Promise<NextResponse> {
           id: user.id,
           email: user.email,
           name: `${user.firstName} ${user.lastName}`,
+          role: user.role,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         },
