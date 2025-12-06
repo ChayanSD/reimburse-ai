@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import axios, { AxiosError } from "axios";
 import { useAuth } from "@/lib/hooks/useAuth";
+import AuthGuard from "@/components/AuthGuard";
 
 // TypeScript interfaces
 interface Metrics {
@@ -56,6 +57,16 @@ const fetchDashboardData = async (): Promise<DashboardData> => {
 };
 
 export default function AdminPage() {
+  const { user, isLoading: loading } = useAuth();
+
+  return (
+    <AuthGuard requireAdmin={true}>
+      <AdminContent />
+    </AuthGuard>
+  );
+}
+
+function AdminContent() {
   const { user, isLoading: loading } = useAuth();
 
   // React Query for data fetching

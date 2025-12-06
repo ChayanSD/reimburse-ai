@@ -3,10 +3,12 @@
 import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import useUser from "@/utils/useUser";
+import { useAuth } from "@/lib/hooks/useAuth";
+import AuthGuard from "@/components/AuthGuard";
 import useUpload from "@/utils/useUpload";
 import { Receipt, Upload, FileText, Check, X, ArrowLeft } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 // TypeScript interfaces
 interface UploadedFile {
@@ -31,7 +33,15 @@ type DragEvent = React.DragEvent<HTMLDivElement>;
 type InputEvent = React.ChangeEvent<HTMLInputElement>;
 
 export default function UploadPage() {
-  const { data: user, loading: userLoading } = useUser();
+  return (
+    <AuthGuard>
+      <UploadContent />
+    </AuthGuard>
+  );
+}
+
+function UploadContent() {
+  const { isLoading: userLoading } = useAuth();
   const [upload, { loading: uploadLoading }] = useUpload();
   
   // State management
@@ -242,23 +252,8 @@ export default function UploadPage() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600 mb-4">
-            Please sign in to upload receipts
-          </p>
-          <a
-            href="/account/signin"
-            className="text-[#2E86DE] hover:text-[#2574C7]"
-          >
-            Sign In
-          </a>
-        </div>
-      </div>
-    );
-  }
+  // This component is now protected by AuthGuard, so we don't need this check
+  // If we reach here, the user is authenticated
 
   return (
     <>
@@ -270,12 +265,12 @@ export default function UploadPage() {
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <a
+              <Link
                 href="/dashboard"
                 className="text-gray-600 hover:text-gray-800"
               >
                 <ArrowLeft size={24} />
-              </a>
+              </Link>
               <Image
                 src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/"
                 alt="ReimburseMe Logo"
@@ -328,12 +323,12 @@ export default function UploadPage() {
                 >
                   Upload Another Receipt
                 </button>
-                <a
+                <Link
                   href="/dashboard"
                   className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-2xl transition-colors"
                 >
                   View Dashboard
-                </a>
+                </Link>
               </div>
             </div>
           ) : !uploadedFile ? (

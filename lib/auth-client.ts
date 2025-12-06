@@ -49,7 +49,9 @@ export class AuthClient {
       this.authState.isLoading = true;
       this.notify();
 
-      const response = await fetch('/api/auth/me');
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include'
+      });
       if (response.ok) {
         const data = await response.json();
         this.authState.user = data.user;
@@ -75,6 +77,7 @@ export class AuthClient {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -100,6 +103,7 @@ export class AuthClient {
     try {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -122,7 +126,10 @@ export class AuthClient {
   // Logout
   async logout(): Promise<void> {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        credentials: 'include'
+      });
       this.authState.user = null;
       this.authState.isAuthenticated = false;
       this.notify();
