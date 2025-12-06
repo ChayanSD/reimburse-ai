@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reportCreateSchema } from "@/validation/report.validation";
-import { checkSubscriptionLimit, incrementUsage } from "@/lib/subscriptionGuard";
+import { checkSubscriptionLimit, incrementUsage, getUserSubscriptionInfo, getSubscriptionLimits } from "@/lib/subscriptionGuard";
 import { generatePDF, PDFResult } from "@/utils/pdfGenerator";
-import { badRequest, unauthorized, notFound, paymentRequired, handleDatabaseError, handleValidationError } from "@/lib/error";
+import { badRequest, unauthorized, notFound, subscriptionLimitReached, handleDatabaseError, handleValidationError } from "@/lib/error";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import type { AuthUser, CompanySettings, Receipt } from "../../generated/prisma/client";
@@ -189,10 +189,16 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
     // Check subscription limits for report exports
     const subscriptionCheck = await checkSubscriptionLimit(userId, 'report_exports');
     if (!subscriptionCheck.allowed) {
-      return paymentRequired(subscriptionCheck.reason || "Subscription limit reached", {
-        upgradeRequired: subscriptionCheck.upgradeRequired,
-        currentTier: subscriptionCheck.currentTier || 'free',
-      });
+      // Get current usage for better error message
+      const subscription = await getUserSubscriptionInfo(userId);
+      const limits = getSubscriptionLimits(subscription?.tier || 'free');
+      
+      return subscriptionLimitReached(
+        'Reports',
+        subscription?.usageReports || 0,
+        limits.maxReports,
+        '/plans'
+      );
     }
 
     const body = await request.json();

@@ -15,9 +15,12 @@ import {
   Eye,
   Plus,
   Crown,
+  X,
+  AlertCircle,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // Types
 interface User {
@@ -26,6 +29,16 @@ interface User {
   first_name?: string;
   last_name?: string;
   is_admin?: boolean;
+}
+
+interface AxiosError {
+  response?: {
+    data?: {
+      error?: string;
+      code?: string;
+      data?: unknown;
+    };
+  };
 }
 
 interface ReceiptItem {
@@ -99,6 +112,56 @@ const getUserDisplayName = (user: User | null): string => {
   }
 };
 
+// Toast notification component
+interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message?: string;
+  duration?: number;
+}
+
+function ToastNotification({ toast, onClose }: { toast: Toast; onClose: (id: string) => void }) {
+  const icons = {
+    success: <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>,
+    error: <AlertCircle className="w-5 h-5 text-red-500" />,
+    warning: <AlertCircle className="w-5 h-5 text-yellow-500" />,
+    info: <AlertCircle className="w-5 h-5 text-blue-500" />,
+  };
+
+  const bgColors = {
+    success: 'bg-green-50 border-green-200',
+    error: 'bg-red-50 border-red-200',
+    warning: 'bg-yellow-50 border-yellow-200',
+    info: 'bg-blue-50 border-blue-200',
+  };
+
+  const textColors = {
+    success: 'text-green-800',
+    error: 'text-red-800',
+    warning: 'text-yellow-800',
+    info: 'text-blue-800',
+  };
+
+  return (
+    <div className={`flex items-start gap-3 p-4 border rounded-xl ${bgColors[toast.type]} animate-in slide-in-from-right-full duration-300`}>
+      {icons[toast.type]}
+      <div className="flex-1">
+        <p className={`font-medium ${textColors[toast.type]}`}>{toast.title}</p>
+        {toast.message && (
+          <p className={`text-sm mt-1 ${textColors[toast.type]} opacity-80`}>{toast.message}</p>
+        )}
+      </div>
+      <button
+        onClick={() => onClose(toast.id)}
+        className={`p-1 hover:bg-white hover:bg-opacity-50 rounded ${textColors[toast.type]}`}
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { data: user, loading: userLoading } = useUser();
   const {
@@ -106,6 +169,23 @@ export default function DashboardPage() {
     loading: subscriptionLoading,
   } = useSubscription();
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    const newToast = { ...toast, id };
+    setToasts(prev => [...prev, newToast]);
+    
+    // Auto remove after duration
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, toast.duration || 5000);
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
   const [filters, setFilters] = useState<Filters>({
     dateRange: "all",
@@ -148,10 +228,21 @@ export default function DashboardPage() {
     mutationFn: deleteReceipt,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["receipts"] });
+      addToast({
+        type: 'success',
+        title: 'Receipt Deleted',
+        message: 'The receipt has been successfully deleted.',
+        duration: 3000,
+      });
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       console.error("Error deleting receipt:", error);
-      alert("Failed to delete receipt");
+      addToast({
+        type: 'error',
+        title: 'Delete Failed',
+        message: 'Failed to delete receipt. Please try again.',
+        duration: 5000,
+      });
     },
   });
 
@@ -164,10 +255,47 @@ export default function DashboardPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      addToast({
+        type: 'success',
+        title: 'Report Generated',
+        message: 'Your expense report has been downloaded successfully.',
+        duration: 3000,
+      });
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       console.error("Error generating report:", error);
-      alert("Failed to generate report");
+      
+      // Type guard for axios error
+      const axiosError = error as AxiosError;
+      
+      // Check if it's a subscription limit error
+      if (axiosError.response?.data?.code === 'SUBSCRIPTION_LIMIT_REACHED') {
+        const errorData = axiosError.response.data;
+        
+        // Show toast notification
+        addToast({
+          type: 'warning',
+          title: 'Subscription Limit Reached',
+          message: errorData.error || 'You have reached your report generation limit.',
+          duration: 6000,
+        });
+        
+        // Redirect to plans page after a short delay
+        setTimeout(() => {
+          router.push('/plans');
+        }, 2000);
+        
+        return;
+      }
+      
+      // Handle other errors
+      addToast({
+        type: 'error',
+        title: 'Report Generation Failed',
+        message: axiosError.response?.data?.error || 'Failed to generate report. Please try again.',
+        duration: 5000,
+      });
     },
   });
 
@@ -337,6 +465,17 @@ export default function DashboardPage() {
 
   return (
     <>
+      {/* Toast Container */}
+      <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+        {toasts.map((toast) => (
+          <ToastNotification
+            key={toast.id}
+            toast={toast}
+            onClose={removeToast}
+          />
+        ))}
+      </div>
+
       <div
         className="min-h-screen bg-[#F3F4F6]"
         style={{ fontFamily: "Inter, system-ui, sans-serif" }}
