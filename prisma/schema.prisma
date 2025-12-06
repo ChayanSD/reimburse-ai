@@ -7,11 +7,241 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id    Int    @id @default(autoincrement())
-  email String @unique
-  name  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@map("users")
+model AuthUser {
+  id                     Int       @id @default(autoincrement())
+  email                  String    @unique @db.VarChar(255)
+  firstName              String?   @map("first_name") @db.VarChar(100)
+  lastName               String?   @map("last_name") @db.VarChar(100)
+  password               String   @db.Text
+  role                   Role      @default(USER) @map("role")
+  subscriptionStatus     String    @default("incomplete") @map("subscription_status") @db.VarChar(20)
+  stripeCustomerId       String?   @map("stripe_customer_id") @db.VarChar(255)
+  stripeSubscriptionId   String?   @map("stripe_subscription_id") @db.VarChar(255)
+  subscriptionTier       String    @default("free") @map("subscription_tier") @db.Text
+  subscriptionEndsAt     DateTime? @map("subscription_ends_at") @db.Timestamptz(6)
+  trialStart             DateTime? @map("trial_start") @db.Timestamptz(6)
+  trialEnd               DateTime? @map("trial_end") @db.Timestamptz(6)
+  referralCode           String?   @unique @map("referral_code") @db.Text
+  referredBy             String?   @map("referred_by") @db.Text
+  earlyAdopter           Boolean   @default(false) @map("early_adopter")
+  lifetimeDiscount       Decimal   @default(0.00) @map("lifetime_discount") @db.Decimal(5, 2)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  receipts               Receipt[]
+  reports                Report[]
+  companySettings        CompanySettings[]
+  auditLogs              AuditLog[]
+  subscriptionUsage      SubscriptionUsage[]
+  subscriptionEvents     SubscriptionEvent[]
+  referralsGiven         ReferralTracking[]    @relation("Referrer")
+  referralsReceived      ReferralTracking[]    @relation("Referred")
+
+  @@index([subscriptionTier], map: "idx_auth_users_subscription_tier")
+  @@index([subscriptionStatus], map: "idx_auth_users_subscription_status")
+  @@index([stripeCustomerId], map: "idx_auth_users_stripe_customer_id")
+  @@index([stripeSubscriptionId], map: "idx_auth_users_stripe_subscription_id")
+  @@map("auth_users")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+// Receipts table
+model Receipt {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
+  fileUrl      String    @map("file_url") @db.Text
+  merchantName String    @map("merchant_name") @db.VarChar(255)
+  receiptDate  DateTime  @map("receipt_date") @db.Date
+  amount       Decimal   @db.Decimal(10, 2)
+  category     String    @db.VarChar(50)
+  currency     String    @default("USD") @db.VarChar(3)
+  note         String?   @db.Text
+  needsReview  Boolean   @default(false) @map("needs_review")
+  isDuplicate  Boolean   @default(false) @map("is_duplicate")
+  confidence   Decimal?  @db.Decimal(3, 2)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user         AuthUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items        ReceiptItem[]
+
+  @@index([userId], map: "idx_receipts_user_id")
+  @@index([receiptDate], map: "idx_receipts_date")
+  @@index([category], map: "idx_receipts_category")
+  @@index([merchantName], map: "idx_receipts_merchant")
+  @@index([createdAt], map: "idx_receipts_created_at")
+  @@index([userId, receiptDate(sort: Desc)], map: "idx_receipts_user_date")
+  @@index([userId, category], map: "idx_receipts_user_category")
+  @@index([userId, merchantName, amount, receiptDate], map: "idx_receipts_duplicate_check")
+  @@map("receipts")
+}
+
+// Reports table
+model Report {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  periodStart  DateTime @map("period_start") @db.Date
+  periodEnd    DateTime @map("period_end") @db.Date
+  title        String?  @db.VarChar(255)
+  totalAmount  Decimal  @map("total_amount") @db.Decimal(10, 2)
+  receiptCount Int      @default(0) @map("receipt_count")
+  pdfUrl       String?  @map("pdf_url") @db.Text
+  csvUrl       String?  @map("csv_url") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  user         AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_reports_user_id")
+  @@index([periodStart, periodEnd], map: "idx_reports_period")
+  @@index([createdAt], map: "idx_reports_created_at")
+  @@map("reports")
+}
+
+// Company settings table
+model CompanySettings {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  companyName   String   @map("company_name") @db.VarChar(255)
+  addressLine1  String?  @map("address_line_1") @db.VarChar(255)
+  addressLine2  String?  @map("address_line_2") @db.VarChar(255)
+  city          String?  @db.VarChar(100)
+  state         String?  @db.VarChar(50)
+  zipCode       String?  @map("zip_code") @db.VarChar(20)
+  country       String   @default("United States") @db.VarChar(100)
+  approverName  String?  @map("approver_name") @db.VarChar(255)
+  approverEmail String?  @map("approver_email") @db.VarChar(255)
+  department    String?  @db.VarChar(100)
+  costCenter    String?  @map("cost_center") @db.VarChar(100)
+  notes         String?  @db.Text
+  isDefault     Boolean  @default(false) @map("is_default")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user          AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_company_settings_user_id")
+  @@index([userId, isDefault], map: "idx_company_settings_default")
+  @@map("company_settings")
+}
+
+// Audit log table
+model AuditLog {
+  id         Int       @id @default(autoincrement())
+  userId     Int?      @map("user_id")
+  eventType  String    @map("event_type") @db.VarChar(100)
+  eventData  Json?     @map("event_data") @db.JsonB
+  ipAddress  String?   @map("ip_address") @db.Inet
+  userAgent  String?   @map("user_agent") @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  user       AuthUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId], map: "idx_audit_log_user_id")
+  @@index([eventType], map: "idx_audit_log_event_type")
+  @@index([createdAt], map: "idx_audit_log_created_at")
+  @@map("audit_log")
+}
+
+// Receipt items table (for detailed line items)
+model ReceiptItem {
+  id          Int      @id @default(autoincrement())
+  receiptId   Int      @map("receipt_id")
+  description String?  @db.Text
+  amount      Decimal  @db.Decimal(10, 2)
+  category    String?  @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  receipt     Receipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId], map: "idx_receipts_items_receipt_id")
+  @@map("receipts_items")
+}
+
+// Subscription usage tracking
+model SubscriptionUsage {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  feature    String   @db.Text
+  usageCount Int      @default(0) @map("usage_count")
+  resetDate  DateTime @default(now()) @map("reset_date") @db.Timestamptz(6)
+  resetDay   DateTime @default(now()) @map("reset_day") @db.Date
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user       AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, feature, resetDay], map: "subscription_usage_user_feature_day_key")
+  @@index([userId], map: "idx_subscription_usage_user_id")
+  @@map("subscription_usage")
+}
+
+// Subscription events for audit trail
+model SubscriptionEvent {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  eventType      String   @map("event_type") @db.Text
+  oldTier        String?  @map("old_tier") @db.Text
+  newTier        String?  @map("new_tier") @db.Text
+  oldStatus      String?  @map("old_status") @db.Text
+  newStatus      String?  @map("new_status") @db.Text
+  stripeEventId  String?  @map("stripe_event_id") @db.Text
+  metadata       Json?    @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  user           AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_subscription_events_user_id")
+  @@map("subscription_events")
+}
+
+// Referral tracking
+model ReferralTracking {
+  id           Int       @id @default(autoincrement())
+  referrerId   Int       @map("referrer_id")
+  referredId   Int       @unique @map("referred_id")
+  referralCode String    @map("referral_code") @db.Text
+  status       String    @default("pending") @db.Text
+  rewardType   String?   @map("reward_type") @db.Text
+  rewardValue  Decimal?  @map("reward_value") @db.Decimal(10, 2)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz(6)
+
+  // Relations
+  referrer     AuthUser  @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred     AuthUser  @relation("Referred", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId], map: "idx_referral_tracking_referrer_id")
+  @@index([referredId], map: "idx_referral_tracking_referred_id")
+  @@map("referral_tracking")
+}
+
+// Subscription tiers configuration
+model SubscriptionTier {
+  id                    Int      @id @default(autoincrement())
+  tierName              String   @unique @map("tier_name") @db.Text
+  displayName           String   @map("display_name") @db.Text
+  monthlyPriceCents     Int      @map("monthly_price_cents")
+  yearlyPriceCents      Int      @map("yearly_price_cents")
+  trialDays             Int      @default(0) @map("trial_days")
+  maxReceipts           Int?     @map("max_receipts")
+  maxReports            Int?     @map("max_reports")
+  features              Json     @db.JsonB
+  stripePriceIdMonthly  String?  @map("stripe_price_id_monthly") @db.Text
+  stripePriceIdYearly   String?  @map("stripe_price_id_yearly") @db.Text
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("subscription_tiers")
 }
