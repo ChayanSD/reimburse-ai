@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { companySettingsSchema } from "@/validation/company-settings.validation";
 
 export async function GET(): Promise<NextResponse> {
   try {
@@ -38,35 +39,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const userId = session.id;
     const body = await request.json();
 
-    const {
-      setting_name = "default",
-      companyName,
-      approverName,
-      approverEmail,
-      addressLine1,
-      addressLine2,
-      city,
-      state,
-      zipCode,
-      country = "United States",
-      department,
-      costCenter,
-      notes,
-      is_default = false,
-    } = body;
-
-    // Basic validation
-    if (!companyName || !approverName || !approverEmail) {
+    // Validate request body with Zod
+    const validationResult = companySettingsSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      const errors = validationResult.error.issues.map(err => ({
+        field: err.path.join('.'),
+        message: err.message
+      }));
+      
       return NextResponse.json(
-        {
-          error: "Company name, approver name, and approver email are required",
+        { 
+          error: "Validation failed", 
+          details: errors,
+          message: "Please check your input data"
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
+    const validatedData = validationResult.data;
+
     // If this is set as default, remove default from other settings
-    if (is_default) {
+    if (validatedData.is_default) {
       await prisma.companySettings.updateMany({
         where: {
           userId: userId,
@@ -78,12 +73,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Check if setting with this name already exists
-    const existingSetting = await prisma.companySettings.findFirst({
-      where: {
-        userId: userId,
-        companyName: setting_name,
-      },
-    });
+    let existingSetting = null;
+    
+    // First, try to find by ID if provided (for updates)
+    if (body.id) {
+      existingSetting = await prisma.companySettings.findFirst({
+        where: {
+          id: body.id,
+          userId: userId,
+        },
+      });
+    }
+    
+    // If not found by ID, try to find by company name and user (for compatibility)
+    if (!existingSetting) {
+      existingSetting = await prisma.companySettings.findFirst({
+        where: {
+          userId: userId,
+          companyName: validatedData.company_name,
+        },
+      });
+    }
 
     let result;
     if (existingSetting) {
@@ -93,19 +103,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           id: existingSetting.id,
         },
         data: {
-          companyName,
-          approverName,
-          approverEmail,
-          addressLine1,
-          addressLine2,
-          city,
-          state,
-          zipCode,
-          country,
-          department,
-          costCenter,
-          notes,
-          isDefault: is_default,
+          companyName: validatedData.company_name,
+          approverName: validatedData.approver_name,
+          approverEmail: validatedData.approver_email,
+          addressLine1: validatedData.address_line_1,
+          addressLine2: validatedData.address_line_2,
+          city: validatedData.city,
+          state: validatedData.state,
+          zipCode: validatedData.zip_code,
+          country: validatedData.country,
+          department: validatedData.department,
+          costCenter: validatedData.cost_center,
+          notes: validatedData.notes,
+          isDefault: validatedData.is_default,
         },
       });
     } else {
@@ -113,19 +123,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       result = await prisma.companySettings.create({
         data: {
           userId,
-          companyName,
-          approverName,
-          approverEmail,
-          addressLine1,
-          addressLine2,
-          city,
-          state,
-          zipCode,
-          country,
-          department,
-          costCenter,
-          notes,
-          isDefault: is_default,
+          companyName: validatedData.company_name,
+          approverName: validatedData.approver_name,
+          approverEmail: validatedData.approver_email,
+          addressLine1: validatedData.address_line_1,
+          addressLine2: validatedData.address_line_2,
+          city: validatedData.city,
+          state: validatedData.state,
+          zipCode: validatedData.zip_code,
+          country: validatedData.country,
+          department: validatedData.department,
+          costCenter: validatedData.cost_center,
+          notes: validatedData.notes,
+          isDefault: validatedData.is_default,
         },
       });
     }
