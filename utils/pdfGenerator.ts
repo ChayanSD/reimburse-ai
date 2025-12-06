@@ -15,8 +15,8 @@ export interface PDFResult {
 }
 
 // Enhanced PDF generation that uses the HTML template content
-export async function generatePDF(data: ExpenseReportData, options: GeneratePDFOptions = {}): Promise<PDFResult> {
-  const { paperSize = "letter", userId } = options;
+export async function generatePDF(data: ExpenseReportData , options?: { userId?: string }): Promise<PDFResult> {
+  // Note: paperSize and userId options are reserved for future implementation
 
   // Generate HTML content
   const htmlContent = generateHTML(data);
@@ -31,7 +31,7 @@ export async function generatePDF(data: ExpenseReportData, options: GeneratePDFO
   const filename = `reimburseme_${userSlug}_${periodStr}.pdf`;
 
   // Create enhanced HTML-based PDF content
-  const pdfContent = createHtmlBasedPDF(data, htmlContent);
+  const pdfContent = createHtmlBasedPDF(data);
   const pdfBuffer = Buffer.from(pdfContent);
 
   // Create data URL with the HTML content for preview
@@ -55,7 +55,7 @@ export async function generatePDF(data: ExpenseReportData, options: GeneratePDFO
   };
 }
 
-function createHtmlBasedPDF(data: ExpenseReportData, htmlContent: string): string {
+function createHtmlBasedPDF(data: ExpenseReportData): string {
   // Enhanced PDF that includes more visual elements from the HTML
   const template = data.branding?.template || "Classic";
   const totalReimbursable = data.summary?.total_reimbursable || 0;

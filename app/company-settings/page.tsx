@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/useAuth";
 import axios from "axios";
 import Image from "next/image";
+import toast from "react-hot-toast";
 import {
   Building2,
   Plus,
@@ -50,6 +51,11 @@ interface ApiResponse<T> {
 
 interface ApiErrorResponse {
   error: string;
+  details?: Array<{
+    field: string;
+    message: string;
+  }>;
+  message?: string;
 }
 
 interface AxiosErrorResponse {
@@ -73,6 +79,7 @@ interface FormData {
   cost_center: string;
   notes: string;
   is_default: boolean;
+  id?: number;
 }
 
 // API functions
@@ -104,6 +111,7 @@ export default function CompanySettingsPage() {
   const { user, isLoading: userLoading } = useAuth();
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<FormData>({
     setting_name: "",
     company_name: "",
@@ -140,11 +148,28 @@ export default function CompanySettingsPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['company-settings'] });
       resetForm();
-      alert(data.message || "Settings saved successfully");
+      setValidationErrors({});
+      toast.success(data.message || "Settings saved successfully");
     },
     onError: (error: AxiosErrorResponse) => {
       console.error("Error saving settings:", error);
-      alert(error.response?.data?.error || "Failed to save settings");
+      const errorData = error.response?.data as ApiErrorResponse;
+      
+      if (errorData?.details) {
+        // Handle field-specific validation errors
+        const fieldErrors: Record<string, string> = {};
+        errorData.details.forEach(detail => {
+          fieldErrors[detail.field] = detail.message;
+        });
+        setValidationErrors(fieldErrors);
+        
+        // Show first error message
+        const firstError = errorData.details[0];
+        toast.error(`${firstError.message} (${firstError.field})`);
+      } else {
+        setValidationErrors({});
+        toast.error(errorData?.error || errorData?.message || "Failed to save settings");
+      }
     },
   });
 
@@ -155,11 +180,11 @@ export default function CompanySettingsPage() {
       if (editingId && !settings.find(s => s.id === editingId)) {
         resetForm();
       }
-      alert(data.message || "Setting deleted successfully");
+      toast.success(data.message || "Setting deleted successfully");
     },
     onError: (error: AxiosErrorResponse) => {
       console.error("Error deleting setting:", error);
-      alert(error.response?.data?.error || "Failed to delete setting");
+      toast.error(error.response?.data?.error || "Failed to delete setting");
     },
   });
 
@@ -167,11 +192,11 @@ export default function CompanySettingsPage() {
     mutationFn: setDefaultCompanySetting,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['company-settings'] });
-      alert(data.message || "Default setting updated successfully");
+      toast.success(data.message || "Default setting updated successfully");
     },
     onError: (error: AxiosErrorResponse) => {
       console.error("Error setting default:", error);
-      alert(error.response?.data?.error || "Failed to set as default");
+      toast.error(error.response?.data?.error || "Failed to set as default");
     },
   });
 
@@ -193,6 +218,7 @@ export default function CompanySettingsPage() {
       is_default: false,
     });
     setEditingId(null);
+    setValidationErrors({});
   };
 
   const handleEdit = (setting: CompanySetting) => {
@@ -223,7 +249,7 @@ export default function CompanySettingsPage() {
       !formData.approver_name ||
       !formData.approver_email
     ) {
-      alert("Company name, approver name, and approver email are required.");
+      toast.error("Company name, approver name, and approver email are required.");
       return;
     }
 
@@ -236,11 +262,18 @@ export default function CompanySettingsPage() {
       updatedFormData.setting_name = baseName;
     }
 
+    // Include editing ID when updating
+    if (editingId) {
+      updatedFormData.id = editingId;
+    }
+
     saveMutation.mutate(updatedFormData);
   };
 
   const handleDelete = async (settingId: number) => {
-    if (!confirm("Are you sure you want to delete this company setting?")) {
+    // Show custom confirmation with toast
+    const confirmed = window.confirm("Are you sure you want to delete this company setting?");
+    if (!confirmed) {
       return;
     }
 
@@ -313,6 +346,8 @@ export default function CompanySettingsPage() {
                 src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/"
                 alt="ReimburseMe Logo"
                 className="w-10 h-10"
+                width={40}
+                height={40}
               />
               <div>
                 <h1
@@ -511,9 +546,14 @@ export default function CompanySettingsPage() {
                         company_name: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent ${
+                      validationErrors.company_name ? 'border-red-300' : 'border-gray-300'
+                    }`}
                     placeholder="e.g. Acme Corporation"
                   />
+                  {validationErrors.company_name && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.company_name}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -530,9 +570,14 @@ export default function CompanySettingsPage() {
                           approver_name: e.target.value,
                         }))
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                      className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent ${
+                        validationErrors.approver_name ? 'border-red-300' : 'border-gray-300'
+                      }`}
                       placeholder="e.g. John Smith"
                     />
+                    {validationErrors.approver_name && (
+                      <p className="mt-1 text-sm text-red-600">{validationErrors.approver_name}</p>
+                    )}
                   </div>
 
                   <div>
@@ -548,9 +593,14 @@ export default function CompanySettingsPage() {
                           approver_email: e.target.value,
                         }))
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                      className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent ${
+                        validationErrors.approver_email ? 'border-red-300' : 'border-gray-300'
+                      }`}
                       placeholder="john@company.com"
                     />
+                    {validationErrors.approver_email && (
+                      <p className="mt-1 text-sm text-red-600">{validationErrors.approver_email}</p>
+                    )}
                   </div>
                 </div>
 
@@ -717,6 +767,32 @@ export default function CompanySettingsPage() {
                   <label className="ml-2 text-sm text-gray-700">
                     Set as default company setting
                   </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Setting Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.setting_name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        setting_name: e.target.value,
+                      }))
+                    }
+                    className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent ${
+                      validationErrors.setting_name ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="e.g. company_default"
+                  />
+                  {validationErrors.setting_name && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.setting_name}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    This will be used as a unique identifier for this company setting
+                  </p>
                 </div>
 
                 <div className="flex gap-3 pt-4">

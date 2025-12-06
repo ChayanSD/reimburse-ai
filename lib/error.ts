@@ -52,6 +52,34 @@ export function paymentRequired(message: string, metadata?: { upgradeRequired?: 
   );
 }
 
+// Specialized subscription limit handler for better frontend integration
+export function subscriptionLimitReached(
+  limitType: string, 
+  currentUsage: number, 
+  limit: number, 
+  upgradeUrl?: string
+): NextResponse {
+  const response = NextResponse.json(
+    {
+      success: false,
+      error: `${limitType} limit reached (${currentUsage}/${limit}). Upgrade to Pro for unlimited ${limitType.toLowerCase()}.`,
+      code: "SUBSCRIPTION_LIMIT_REACHED",
+      data: {
+        limitType,
+        currentUsage,
+        limit,
+        upgradeRequired: "pro",
+        currentTier: "free",
+        upgradeUrl: upgradeUrl || "/plans"
+      },
+      timestamp: new Date().toISOString()
+    },
+    { status: 402 }
+  );
+  
+  return response;
+}
+
 export function internalServerError(message: string = "Internal Server Error"): NextResponse {
   return NextResponse.json({ error: message }, { status: 500 });
 }

@@ -1,8 +1,8 @@
 import { getSession } from "@/lib/session";
 import { getUserSubscriptionInfo } from "@/lib/subscriptionGuard";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(request : NextRequest) {
+export async function GET() : Promise<NextResponse> {
   try {
     const session = await getSession();
     if (!session || !session.id) {

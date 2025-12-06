@@ -579,19 +579,3 @@ export async function processReferral(
     },
   });
 }
-
-export default {
-  initializeUserTrial,
-  checkSubscriptionLimit,
-  incrementSubscriptionUsage,
-  getUserSubscriptionInfo,
-  updateSubscriptionTier,
-  handleStripeWebhook,
-  enforceSubscriptionLimit,
-  processReceiptUpload,
-  generateReport,
-  resetDailyUsage,
-  expireTrials,
-  createReferralCode,
-  processReferral,
-};

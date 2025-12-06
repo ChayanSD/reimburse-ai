@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reportCreateSchema } from "@/validation/report.validation";
-import { checkSubscriptionLimit, incrementUsage } from "@/lib/subscriptionGuard";
+import { checkSubscriptionLimit, incrementUsage, getUserSubscriptionInfo, getSubscriptionLimits } from "@/lib/subscriptionGuard";
 import { generatePDF, PDFResult } from "@/utils/pdfGenerator";
-import { badRequest, unauthorized, notFound, paymentRequired, handleDatabaseError, handleValidationError } from "@/lib/error";
+import { badRequest, unauthorized, notFound, subscriptionLimitReached, handleDatabaseError, handleValidationError } from "@/lib/error";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import type { AuthUser, CompanySettings, Receipt } from "../../generated/prisma/client";
@@ -23,6 +23,10 @@ function generateCSV(receipts: Receipt[], periodStart: string, periodEnd: string
   ]);
 
   const csvContent = [
+    `Report Period,${periodStart} to ${periodEnd}`,
+    `Generated At,${new Date().toISOString()}`,
+    `Total Receipts,${receipts.length}`,
+    "",
     headers.join(","),
     ...rows.map((row) => row.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(",")),
   ].join("\n");
@@ -185,10 +189,16 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
     // Check subscription limits for report exports
     const subscriptionCheck = await checkSubscriptionLimit(userId, 'report_exports');
     if (!subscriptionCheck.allowed) {
-      return paymentRequired(subscriptionCheck.reason || "Subscription limit reached", {
-        upgradeRequired: subscriptionCheck.upgradeRequired,
-        currentTier: subscriptionCheck.currentTier || 'free',
-      });
+      // Get current usage for better error message
+      const subscription = await getUserSubscriptionInfo(userId);
+      const limits = getSubscriptionLimits(subscription?.tier || 'free');
+      
+      return subscriptionLimitReached(
+        'Reports',
+        subscription?.usageReports || 0,
+        limits.maxReports,
+        '/plans'
+      );
     }
 
     const body = await request.json();
@@ -199,7 +209,7 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
       return handleValidationError(validation.error);
     }
 
-    const { receipt_ids, period_start, period_end, title, include_items, format, company_setting_id } = validation.data;
+    const { receipt_ids, period_start, period_end, title, format, company_setting_id } = validation.data;
 
     // Fetch user data with first_name and last_name
     const user = await prisma.authUser.findUnique({
@@ -230,7 +240,7 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
 
     // Get company settings if specified
     let companySetting = null;
-    if (company_setting_id) {
+    if (company_setting_id !== null && company_setting_id !== undefined) {
       companySetting = await prisma.companySettings.findUnique({
         where: { id: company_setting_id, userId: userId }
       });
