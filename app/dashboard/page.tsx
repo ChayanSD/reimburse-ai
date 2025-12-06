@@ -52,11 +52,13 @@ interface Filters {
 }
 
 interface ReportData {
-  receipt_ids: string[];
-  date_range: string;
-  category: string;
+  receipt_ids: number[];
+  period_start: string;
+  period_end: string;
+  title?: string;
+  include_items?: boolean;
   format: "csv" | "pdf";
-  company_setting_id: string | null;
+  company_setting_id?: number | null;
 }
 
 // API functions
@@ -236,12 +238,49 @@ export default function DashboardPage() {
   };
 
   const handleGenerateReport = async (format: "csv" | "pdf") => {
+    // Calculate date range based on filters
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = now;
+
+    switch (filters.dateRange) {
+      case "current_month":
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case "last_30":
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case "last_90":
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 90);
+        break;
+      case "custom":
+        startDate = filters.customStartDate ? new Date(filters.customStartDate) : new Date(0);
+        endDate = filters.customEndDate ? new Date(filters.customEndDate) : now;
+        break;
+      default:
+        // "all" - use earliest receipt date or 90 days ago, whichever is later
+        if (receipts.length > 0) {
+          const dates = receipts
+            .map(r => r.receipt_date ? new Date(r.receipt_date) : null)
+            .filter((d): d is Date => d !== null && !isNaN(d.getTime()));
+          startDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => d.getTime()))) : new Date(now.getFullYear(), now.getMonth() - 3, 1);
+        } else {
+          startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+        }
+        break;
+    }
+
+    // Format dates as YYYY-MM-DD
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
     const reportData: ReportData = {
-      receipt_ids: receipts.map((r) => r.id),
-      date_range: filters.dateRange,
-      category: filters.category,
+      receipt_ids: receipts.map((r) => Number(r.id)), // Convert string to number
+      period_start: formatDate(startDate),
+      period_end: formatDate(endDate),
       format,
-      company_setting_id: selectedCompanySetting,
+      company_setting_id: selectedCompanySetting ? Number(selectedCompanySetting) : null, // Convert to number or null
     };
     reportMutation.mutate(reportData);
   };

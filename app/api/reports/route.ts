@@ -23,6 +23,10 @@ function generateCSV(receipts: Receipt[], periodStart: string, periodEnd: string
   ]);
 
   const csvContent = [
+    `Report Period,${periodStart} to ${periodEnd}`,
+    `Generated At,${new Date().toISOString()}`,
+    `Total Receipts,${receipts.length}`,
+    "",
     headers.join(","),
     ...rows.map((row) => row.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(",")),
   ].join("\n");
@@ -199,7 +203,7 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
       return handleValidationError(validation.error);
     }
 
-    const { receipt_ids, period_start, period_end, title, include_items, format, company_setting_id } = validation.data;
+    const { receipt_ids, period_start, period_end, title, format, company_setting_id } = validation.data;
 
     // Fetch user data with first_name and last_name
     const user = await prisma.authUser.findUnique({
@@ -230,7 +234,7 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
 
     // Get company settings if specified
     let companySetting = null;
-    if (company_setting_id) {
+    if (company_setting_id !== null && company_setting_id !== undefined) {
       companySetting = await prisma.companySettings.findUnique({
         where: { id: company_setting_id, userId: userId }
       });

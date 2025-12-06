@@ -38,9 +38,9 @@ export async function GET(request : NextRequest) {
     const queryParams = {
       page: parseInt(searchParams.get("page") || "1"),
       limit: parseInt(searchParams.get("limit") || "20"),
-      from: searchParams.get("from"),
-      to: searchParams.get("to"),
-      category: searchParams.get("category"),
+      from: searchParams.get("from") || undefined,
+      to: searchParams.get("to") || undefined,
+      category: searchParams.get("category") || undefined,
     };
 
     const validation = paginationSchema.safeParse(queryParams);
