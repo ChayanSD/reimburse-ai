@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Key monitoring dashboard (admin only)
 export async function GET(request: NextRequest) {
-  return requireAdmin(async (req, session) => {
+  return requireAdmin(async () => {
     try {
       KeySecurityManager.getInstance();
 

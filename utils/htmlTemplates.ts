@@ -102,7 +102,6 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
     reportMeta,
     submitter,
     recipient,
-    branding,
     summary,
     line_items = [],
     policy,
@@ -671,7 +670,7 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
             <tbody>
               ${line_items
                 .map(
-                  (item: LineItem, index: number) => `
+                  (item: LineItem) => `
                 <tr>
                   <td>${formatDate(item.date)}</td>
                   <td><strong>${sanitizeHTML(item.merchant)}</strong></td>
@@ -786,7 +785,7 @@ function generateAppendixHTML(lineItems: LineItem[], totalPages: number): string
         ${lineItems
           .slice(0, 12)
           .map(
-            (item: LineItem, index: number) => `
+            (item: LineItem) => `
           <div class="receipt-thumbnail">
             <div class="thumbnail-placeholder">
               ${item.file_url ? `<a href="${item.file_url}" target="_blank" style="text-decoration: none; color: inherit;">🧾 Click to View</a>` : "📄 No Receipt"}
@@ -857,20 +856,20 @@ function formatMonthYear(dateStr: string): string {
   }
 }
 
-function formatDateTime(dateStr: string): string {
-  if (!dateStr) return "N/A";
-  try {
-    return new Date(dateStr).toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "Invalid Date";
-  }
-}
+// function formatDateTime(dateStr: string): string {
+//   if (!dateStr) return "N/A";
+//   try {
+//     return new Date(dateStr).toLocaleString("en-US", {
+//       year: "numeric",
+//       month: "short",
+//       day: "numeric",
+//       hour: "2-digit",
+//       minute: "2-digit",
+//     });
+//   } catch {
+//     return "Invalid Date";
+//   }
+// }
 
 function formatCurrency(amount: number): string {
   return amount.toLocaleString("en-US", {

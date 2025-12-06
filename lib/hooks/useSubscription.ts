@@ -201,6 +201,7 @@ export function useSubscription() {
                   refetchSubscription();
                 }
               } catch (e) {
+                console.error("Stripe checkout error:", e);
                 // Cross-origin error when popup navigates to Stripe
                 // This is expected and normal
               }
@@ -217,6 +218,7 @@ export function useSubscription() {
                 }
               } catch (e) {
                 // Cross-origin error - expected
+                console.error("Stripe checkout error:", e);
               }
             }, 1000);
           }

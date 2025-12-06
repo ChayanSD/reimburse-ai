@@ -57,8 +57,6 @@ const fetchDashboardData = async (): Promise<DashboardData> => {
 };
 
 export default function AdminPage() {
-  const { user, isLoading: loading } = useAuth();
-
   return (
     <AuthGuard requireAdmin={true}>
       <AdminContent />
