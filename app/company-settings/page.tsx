@@ -15,6 +15,16 @@ import {
   Star,
   StarOff,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // TypeScript interfaces
 interface CompanySetting {
@@ -112,6 +122,15 @@ export default function CompanySettingsPage() {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    settingId: number | null;
+    settingInfo: string;
+  }>({
+    isOpen: false,
+    settingId: null,
+    settingInfo: "",
+  });
   const [formData, setFormData] = useState<FormData>({
     setting_name: "",
     company_name: "",
@@ -271,13 +290,33 @@ export default function CompanySettingsPage() {
   };
 
   const handleDelete = async (settingId: number) => {
-    // Show custom confirmation with toast
-    const confirmed = window.confirm("Are you sure you want to delete this company setting?");
-    if (!confirmed) {
-      return;
-    }
+    const setting = settings.find(s => s.id === settingId);
+    const settingInfo = setting ? setting.companyName : "this company setting";
+    
+    setDeleteModal({
+      isOpen: true,
+      settingId,
+      settingInfo,
+    });
+  };
 
-    deleteMutation.mutate(settingId);
+  const confirmDeleteSetting = () => {
+    if (deleteModal.settingId) {
+      deleteMutation.mutate(deleteModal.settingId);
+    }
+    setDeleteModal({
+      isOpen: false,
+      settingId: null,
+      settingInfo: "",
+    });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal({
+      isOpen: false,
+      settingId: null,
+      settingInfo: "",
+    });
   };
 
   const handleSetDefault = async (settingId: number) => {
@@ -821,6 +860,28 @@ export default function CompanySettingsPage() {
           </div>
         </main>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AlertDialog open={deleteModal.isOpen} onOpenChange={(open) => !open && closeDeleteModal()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Company Setting</AlertDialogTitle>
+            <AlertDialogDescription>
+              {`Are you sure you want to delete "${deleteModal.settingInfo}"? This action cannot be undone and will affect any reports using this setting.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteSetting}
+              disabled={deleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Setting"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

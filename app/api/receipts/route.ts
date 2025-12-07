@@ -83,8 +83,26 @@ export async function GET(request : NextRequest) {
 
     const total = await prisma.receipt.count({ where });
 
+    // Transform the data to match frontend interface (snake_case and correct types)
+    const transformedReceipts = receipts.map(receipt => ({
+      id: receipt.id.toString(),
+      receipt_date: receipt.receiptDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+      merchant_name: receipt.merchantName,
+      amount: receipt.amount.toString(),
+      category: receipt.category,
+      file_url: receipt.fileUrl,
+      // Include other fields that might be needed
+      currency: receipt.currency,
+      note: receipt.note,
+      needs_review: receipt.needsReview,
+      is_duplicate: receipt.isDuplicate,
+      confidence: receipt.confidence?.toString() || null,
+      created_at: receipt.createdAt.toISOString(),
+      updated_at: receipt.updatedAt.toISOString(),
+    }));
+
     return NextResponse.json({ 
-      receipts,
+      receipts: transformedReceipts,
       pagination: {
         page,
         limit,

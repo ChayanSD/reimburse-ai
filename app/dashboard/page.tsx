@@ -21,6 +21,16 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Types
 interface User {
@@ -51,9 +61,23 @@ interface ReceiptItem {
 }
 
 interface CompanySetting {
-  id: string;
-  company_name: string;
-  is_default: boolean;
+  id: number;
+  userId: number;
+  companyName: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country: string;
+  approverName?: string;
+  approverEmail?: string;
+  department?: string;
+  costCenter?: string;
+  notes?: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Filters {
@@ -194,7 +218,16 @@ export default function DashboardPage() {
     category: "all",
     merchant: "",
   });
-  const [selectedCompanySetting, setSelectedCompanySetting] = useState<string | null>(null);
+  const [selectedCompanySetting, setSelectedCompanySetting] = useState<number | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    receiptId: string | null;
+    receiptInfo: string;
+  }>({
+    open: false,
+    receiptId: null,
+    receiptInfo: "",
+  });
 
   // Queries
   const {
@@ -214,7 +247,7 @@ export default function DashboardPage() {
     select: (data) => {
       // Set default company setting on first load
       if (data.length > 0 && !selectedCompanySetting) {
-        const defaultSetting = data.find((s) => s.is_default);
+        const defaultSetting = data.find((s) => s.isDefault);
         setTimeout(() => {
           setSelectedCompanySetting(defaultSetting?.id ?? data[0].id);
         }, 0);
@@ -361,8 +394,35 @@ export default function DashboardPage() {
   const receipts = useMemo(() => applyFilters(allReceipts), [allReceipts, applyFilters]);
 
   const handleDeleteReceipt = async (receiptId: string) => {
-    if (!confirm("Are you sure you want to delete this receipt?")) return;
-    deleteMutation.mutate(receiptId);
+    const receipt = allReceipts.find(r => r.id === receiptId);
+    const receiptInfo = receipt 
+      ? `${receipt.merchant_name || "Unknown Merchant"} - ${parseFloat(String(receipt.amount) || "0").toFixed(2)}`
+      : "this receipt";
+    
+    setDeleteModal({
+      open: true,
+      receiptId,
+      receiptInfo,
+    });
+  };
+
+  const confirmDeleteReceipt = () => {
+    if (deleteModal.receiptId) {
+      deleteMutation.mutate(deleteModal.receiptId);
+    }
+    setDeleteModal({
+      open: false,
+      receiptId: null,
+      receiptInfo: "",
+    });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal({
+      open: false,
+      receiptId: null,
+      receiptInfo: "",
+    });
   };
 
   const handleGenerateReport = async (format: "csv" | "pdf") => {
@@ -408,7 +468,7 @@ export default function DashboardPage() {
       period_start: formatDate(startDate),
       period_end: formatDate(endDate),
       format,
-      company_setting_id: selectedCompanySetting ? Number(selectedCompanySetting) : null, // Convert to number or null
+      company_setting_id: selectedCompanySetting, // Already a number
     };
     reportMutation.mutate(reportData);
   };
@@ -476,6 +536,30 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteModal.open}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Receipt</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {deleteModal.receiptInfo}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={closeDeleteModal}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteReceipt}
+              disabled={deleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Receipt"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div
         className="min-h-screen bg-[#F3F4F6]"
         style={{ fontFamily: "Inter, system-ui, sans-serif" }}
@@ -504,31 +588,31 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center space-y-2 md:space-y-0 md:space-x-4">
               <Link
                 href="/company-settings"
-                className="text-gray-600 hover:text-gray-800 font-medium"
+                className="text-gray-600 hover:text-gray-800 font-medium text-sm md:text-base"
               >
                 Company Settings
               </Link>
               {(user as User)?.is_admin && (
                 <Link
                   href="/admin"
-                  className="text-gray-600 hover:text-gray-800 font-medium"
+                  className="text-gray-600 hover:text-gray-800 font-medium text-sm md:text-base"
                 >
                   Admin
                 </Link>
               )}
               <a
                 href="/upload"
-                className="flex items-center gap-2 px-4 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-2xl transition-colors"
+                className="flex items-center gap-2 px-3 md:px-4 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-2xl transition-colors text-sm md:text-base"
               >
                 <Plus size={18} />
-                Upload Receipt
+                <span className="hidden sm:inline">Upload Receipt</span>
               </a>
               <a
                 href="/account/logout"
-                className="text-gray-600 hover:text-gray-800 font-medium"
+                className="text-gray-600 hover:text-gray-800 font-medium text-sm md:text-base"
               >
                 Sign Out
               </a>
@@ -539,7 +623,7 @@ export default function DashboardPage() {
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-6 py-8">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-3xl p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -652,159 +736,173 @@ export default function DashboardPage() {
 
           {/* Enhanced Filters and Actions */}
           <div className="bg-white rounded-3xl p-6 border border-gray-200 mb-6">
-            <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-6">
-              {/* Company Selection for Reports */}
-              {companySettings.length > 0 && (
-                <div className="w-full lg:w-auto mb-4 lg:mb-0">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Report For
-                  </label>
+            {/* Main Filter Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+              {/* Company Selection */}
+              <div className="lg:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Report For
+                </label>
+                {companySettings.length > 0 ? (
                   <select
                     value={selectedCompanySetting || ""}
-                    onChange={(e) => setSelectedCompanySetting(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent min-w-[200px]"
+                    onChange={(e) => setSelectedCompanySetting(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
                   >
                     {companySettings.map((setting) => (
-                      <option key={setting.id} value={setting.id}>
-                        {setting.company_name}
-                        {setting.is_default && " (Default)"}
+                      <option key={setting.id} value={String(setting.id)}>
+                        {setting.companyName}
+                        {setting.isDefault && " (Default)"}
                       </option>
                     ))}
                   </select>
-                </div>
-              )}
-
-              <div className="flex-1">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Date Range
-                    </label>
-                    <select
-                      value={filters.dateRange}
-                      onChange={(e) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          dateRange: e.target.value as Filters["dateRange"],
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
-                    >
-                      <option value="all">All Time</option>
-                      <option value="last_30">Last 30 Days</option>
-                      <option value="last_90">Last 90 Days</option>
-                      <option value="current_month">Current Month</option>
-                      <option value="custom">Custom Range</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category
-                    </label>
-                    <select
-                      value={filters.category}
-                      onChange={(e) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          category: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
-                    >
-                      <option value="all">All Categories</option>
-                      <option value="Meals">Meals</option>
-                      <option value="Travel">Travel</option>
-                      <option value="Supplies">Supplies</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Search Merchant
-                    </label>
-                    <input
-                      type="text"
-                      value={filters.merchant}
-                      onChange={(e) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          merchant: e.target.value,
-                        }))
-                      }
-                      placeholder="Search merchant..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="flex items-end">
-                    <button
-                      onClick={resetFilters}
-                      className="w-full px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-xl transition-colors"
-                    >
-                      Reset Filters
-                    </button>
-                  </div>
-                </div>
-
-                {/* Custom Date Range */}
-                {filters.dateRange === "custom" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Start Date
-                      </label>
-                      <input
-                        type="date"
-                        value={filters.customStartDate}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            customStartDate: e.target.value,
-                          }))
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
-                      />
+                ) : (
+                  <div className="space-y-2">
+                    <div className="px-3 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-500">
+                      No company settings found
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        End Date
-                      </label>
-                      <input
-                        type="date"
-                        value={filters.customEndDate}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            customEndDate: e.target.value,
-                          }))
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
-                      />
-                    </div>
+                    <Link
+                      href="/company-settings"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-xl transition-colors text-sm"
+                    >
+                      Add Company Settings
+                    </Link>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleGenerateReport("csv")}
-                  disabled={reportMutation.isPending || receipts.length === 0}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-2xl transition-colors disabled:opacity-50"
+              {/* Date Range Filter */}
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date Range
+                </label>
+                <select
+                  value={filters.dateRange}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      dateRange: e.target.value as Filters["dateRange"],
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
                 >
-                  <Download size={18} />
-                  CSV Report
-                </button>
-                <button
-                  onClick={() => handleGenerateReport("pdf")}
-                  disabled={reportMutation.isPending || receipts.length === 0}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-2xl transition-colors disabled:opacity-50"
+                  <option value="all">All Time</option>
+                  <option value="last_30">Last 30 Days</option>
+                  <option value="last_90">Last 90 Days</option>
+                  <option value="current_month">Current Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+
+              {/* Category Filter */}
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category
+                </label>
+                <select
+                  value={filters.category}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      category: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
                 >
-                  <Download size={18} />
-                  PDF Report
+                  <option value="all">All Categories</option>
+                  <option value="Meals">Meals</option>
+                  <option value="Travel">Travel</option>
+                  <option value="Supplies">Supplies</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Merchant Search */}
+              <div className="lg:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Search Merchant
+                </label>
+                <input
+                  type="text"
+                  value={filters.merchant}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      merchant: e.target.value,
+                    }))
+                  }
+                  placeholder="Search merchant..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                />
+              </div>
+
+              {/* Reset Button */}
+              <div className="lg:col-span-2 flex items-end">
+                <button
+                  onClick={resetFilters}
+                  className="w-full px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-xl transition-colors"
+                >
+                  Reset Filters
                 </button>
               </div>
+            </div>
+
+            {/* Custom Date Range - Only shown when custom is selected */}
+            {filters.dateRange === "custom" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.customStartDate}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        customStartDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.customEndDate}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        customEndDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-end">
+              <button
+                onClick={() => handleGenerateReport("csv")}
+                disabled={reportMutation.isPending || receipts.length === 0}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-xl transition-colors disabled:opacity-50"
+              >
+                <Download size={18} />
+                CSV Report
+              </button>
+              <button
+                onClick={() => handleGenerateReport("pdf")}
+                disabled={reportMutation.isPending || receipts.length === 0}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-xl transition-colors disabled:opacity-50"
+              >
+                <Download size={18} />
+                PDF Report
+              </button>
             </div>
 
             {/* Filter Status */}
