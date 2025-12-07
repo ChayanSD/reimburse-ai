@@ -22,7 +22,28 @@ export async function GET(): Promise<NextResponse> {
       ],
     });
 
-    return NextResponse.json({ settings });
+    // Transform the data to match frontend interface (camelCase)
+    const transformedSettings = settings.map(setting => ({
+      id: setting.id,
+      userId: setting.userId,
+      companyName: setting.companyName,
+      addressLine1: setting.addressLine1,
+      addressLine2: setting.addressLine2,
+      city: setting.city,
+      state: setting.state,
+      zipCode: setting.zipCode,
+      country: setting.country,
+      approverName: setting.approverName,
+      approverEmail: setting.approverEmail,
+      department: setting.department,
+      costCenter: setting.costCenter,
+      notes: setting.notes,
+      isDefault: setting.isDefault,
+      createdAt: setting.createdAt.toISOString(),
+      updatedAt: setting.updatedAt.toISOString(),
+    }));
+
+    return NextResponse.json({ settings: transformedSettings });
   } catch (error) {
     console.error("GET /api/company-settings error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
