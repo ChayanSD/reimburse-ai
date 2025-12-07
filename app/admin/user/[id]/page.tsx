@@ -20,6 +20,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 // Type definitions
 interface UserInfo {
@@ -180,12 +181,12 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
           <p className="text-gray-600 mb-4">
             Please sign in to access admin dashboard
           </p>
-          <a
+          <Link
             href="/account/signin"
             className="text-blue-600 hover:text-blue-700"
           >
             Sign In
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -202,9 +203,9 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
         <div className="text-center">
           <AlertCircle className="mx-auto mb-4 text-red-500" size={48} />
           <p className="text-red-600 mb-4">{errorMessage}</p>
-          <a href="/admin" className="text-blue-600 hover:text-blue-700">
+          <Link href="/admin" className="text-blue-600 hover:text-blue-700">
             Back to Admin Dashboard
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -262,19 +263,19 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
                 />
                 Refresh
               </button>
-              <a
+              <Link
                 href="/admin"
                 className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-2xl transition-colors"
               >
                 <ArrowLeft size={16} />
                 Back to Admin
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/account/logout"
                 className="text-gray-600 hover:text-gray-800 font-medium"
               >
                 Sign Out
-              </a>
+              </Link>
             </div>
           </div>
         </header>
