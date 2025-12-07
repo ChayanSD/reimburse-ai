@@ -6,16 +6,30 @@ import useUser from "@/utils/useUser";
 
 // TypeScript interfaces
 interface Receipt {
-  id: string;
-  merchant_name: string;
+  id: number;
+  userId: number;
+  fileUrl: string;
+  merchantName: string;
+  receiptDate: string;
   amount: string;
   category: string;
-  receipt_date?: string;
-  created_at?: string;
+  currency: string;
+  note?: string;
+  needsReview: boolean;
+  isDuplicate: boolean;
+  confidence?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ReceiptsResponse {
   receipts: Receipt[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
 }
 
 export default function DebugPage() {
@@ -153,10 +167,10 @@ export default function DebugPage() {
                     {receipts.map((receipt: Receipt) => (
                       <tr key={receipt.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-sm text-gray-900 font-mono">
-                          {receipt.id.slice(-8)}...
+                          {receipt.id.toString().slice(-8)}...
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900">
-                          {receipt.merchant_name || "Unknown"}
+                          {receipt.merchantName || "Unknown"}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900">
                           ${parseFloat(String(receipt.amount || 0)).toFixed(2)}
@@ -165,15 +179,15 @@ export default function DebugPage() {
                           {receipt.category}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900">
-                          {receipt.receipt_date
+                          {receipt.receiptDate
                             ? new Date(
-                                receipt.receipt_date
+                                receipt.receiptDate
                               ).toLocaleDateString()
                             : "N/A"}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900">
-                          {receipt.created_at
-                            ? new Date(receipt.created_at).toLocaleString()
+                          {receipt.createdAt
+                            ? new Date(receipt.createdAt).toLocaleString()
                             : "N/A"}
                         </td>
                       </tr>
