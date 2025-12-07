@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import Image from "next/image";
 
 export default function LogoutPage() {
   const { logout } = useAuth();
+  const router = useRouter();
 
   const handleSignOut = async () => {
     await logout();
+    router.push('/');
   };
 
   return (
