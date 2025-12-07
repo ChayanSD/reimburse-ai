@@ -291,12 +291,12 @@ function UploadContent() {
               </div>
             </div>
 
-            <a
+            <Link
               href="/dashboard"
               className="text-gray-600 hover:text-gray-800 font-medium"
             >
               Back to Dashboard
-            </a>
+            </Link>
           </div>
         </header>
 

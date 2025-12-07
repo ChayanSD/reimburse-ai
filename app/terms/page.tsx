@@ -1,5 +1,6 @@
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import Link from "next/link";
 
 export default function TermsPage() {
   return (
@@ -128,12 +129,12 @@ export default function TermsPage() {
               </p>
               <p className="text-gray-700">
                 Email:{" "}
-                <a
+                <Link
                   href="mailto:support@reimburseme.com"
                   className="text-[#2E86DE] hover:text-[#2574C7]"
                 >
                   support@reimburseme.com
-                </a>
+                </Link>
               </p>
             </section>
           </div>

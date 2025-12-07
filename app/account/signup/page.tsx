@@ -407,13 +407,13 @@ export default function SignUpPage() {
               />
               <label className="ml-3 text-sm text-gray-600">
                 By continuing, you agree to the{" "}
-                <a href="/terms" className="text-[#2E86DE] hover:underline">
+                <Link href="/terms" className="text-[#2E86DE] hover:underline">
                   Terms of Service
-                </a>{" "}
+                </Link>{" "}
                 and{" "}
-                <a href="/privacy" className="text-[#2E86DE] hover:underline">
+                <Link href="/privacy" className="text-[#2E86DE] hover:underline">
                   Privacy Policy
-                </a>
+                </Link>
               </label>
             </div>
             {errors.accept_terms && (

@@ -512,12 +512,12 @@ export default function DashboardPage() {
           <p className="text-gray-600 mb-4">
             Please sign in to access your dashboard
           </p>
-          <a
+          <Link
             href="/account/signin"
             className="text-[#2E86DE] hover:text-[#2574C7]"
           >
             Sign In
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -603,19 +603,19 @@ export default function DashboardPage() {
                   Admin
                 </Link>
               )}
-              <a
+              <Link
                 href="/upload"
                 className="flex items-center gap-2 px-3 md:px-4 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-2xl transition-colors text-sm md:text-base"
               >
                 <Plus size={18} />
                 <span className="hidden sm:inline">Upload Receipt</span>
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/account/logout"
                 className="text-gray-600 hover:text-gray-800 font-medium text-sm md:text-base"
               >
                 Sign Out
-              </a>
+              </Link>
             </div>
           </div>
         </header>
@@ -725,12 +725,12 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              <a
+              <Link
                 href="/pricing"
                 className="text-sm text-[#2E86DE] hover:text-[#2574C7] mt-1 inline-block"
               >
                 {subscriptionTier === "free" ? "Upgrade Plan" : "Manage Plan"}
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -961,13 +961,13 @@ export default function DashboardPage() {
                     : "No receipts match your current filters"}
                 </div>
                 {allReceipts.length === 0 ? (
-                  <a
+                  <Link
                     href="/upload"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-2xl transition-colors"
                   >
                     <Upload size={18} />
                     Upload Your First Receipt
-                  </a>
+                  </Link>
                 ) : (
                   <button
                     onClick={resetFilters}

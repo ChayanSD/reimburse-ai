@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import Link from "next/link";
 
 // TypeScript interfaces
 interface CompanySetting {
@@ -360,12 +361,12 @@ export default function CompanySettingsPage() {
           <p className="text-gray-600 mb-4">
             Please sign in to access settings
           </p>
-          <a
+          <Link
             href="/account/signin"
             className="text-[#2E86DE] hover:text-[#2574C7]"
           >
             Sign In
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -402,18 +403,18 @@ export default function CompanySettingsPage() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <a
+              <Link
                 href="/dashboard"
                 className="text-gray-600 hover:text-gray-800 font-medium"
               >
                 Back to Dashboard
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/account/logout"
                 className="text-gray-600 hover:text-gray-800 font-medium"
               >
                 Sign Out
-              </a>
+              </Link>
             </div>
           </div>
         </header>

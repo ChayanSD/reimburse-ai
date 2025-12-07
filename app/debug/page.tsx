@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import useUser from "@/utils/useUser";
+import Link from "next/link";
 
 // TypeScript interfaces
 interface Receipt {
@@ -76,12 +77,12 @@ export default function DebugPage() {
           <p className="text-gray-600 mb-4">
             Please sign in to view debug info
           </p>
-          <a
+          <Link
             href="/account/signin"
             className="text-blue-600 hover:text-blue-700"
           >
             Sign In
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -97,12 +98,12 @@ export default function DebugPage() {
             <h1 className="text-2xl font-bold text-gray-900">
               Debug Information
             </h1>
-            <a
+            <Link
               href="/dashboard"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Back to Dashboard
-            </a>
+            </Link>
           </div>
 
           {/* User Info */}
@@ -213,12 +214,12 @@ export default function DebugPage() {
               <ol className="list-decimal list-inside space-y-1 ml-4">
                 <li>
                   Go to the{" "}
-                  <a
+                  <Link
                     href="/upload"
                     className="text-blue-600 hover:text-blue-700"
                   >
                     Upload page
-                  </a>
+                  </Link>
                 </li>
                 <li>Upload any image file (JPEG, PNG) or PDF</li>
                 <li>Fill in the receipt details form</li>

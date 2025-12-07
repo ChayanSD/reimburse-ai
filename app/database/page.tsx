@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useAuth } from "@/lib/hooks/useAuth";
+import Link from "next/link";
 
 interface DatabaseTable {
   name: string;
@@ -77,12 +78,12 @@ export default function DatabasePage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 mb-4">Please sign in to view database</p>
-          <a
+          <Link
             href="/account/signin"
             className="text-blue-600 hover:text-blue-700"
           >
             Sign In
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -98,18 +99,18 @@ export default function DatabasePage() {
               Database Viewer
             </h1>
             <div className="flex gap-3">
-              <a
+              <Link
                 href="/debug"
                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
               >
                 Debug Page
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/dashboard"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Dashboard
-              </a>
+              </Link>
             </div>
           </div>
         </div>

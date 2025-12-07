@@ -62,14 +62,14 @@ const Footer: React.FC<FooterProps> = ({ className }) => {
                   
                   if (isExternal || isHash) {
                     return (
-                      <a
+                      <Link
                         key={link.name}
                         href={link.href}
                         className="text-gray-700 hover:text-gray-900 text-[16px] font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:ring-offset-2 focus:ring-inset rounded-sm px-2 py-1"
                         style={{ fontFamily: "Inter, system-ui, sans-serif" }}
                       >
                         {link.name}
-                      </a>
+                      </Link>
                     );
                   }
                   

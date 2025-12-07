@@ -3,6 +3,7 @@
 import { Check } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import useSubscription from "@/lib/hooks/useSubscription";
+import Link from "next/link";
 
 // Type definitions
 type ProductType = "free" | "pro" | "premium";
@@ -194,7 +195,7 @@ export default function Pricing() {
 
                 {/* CTA Button */}
                 {plan.href ? (
-                  <a
+                  <Link
                     href={plan.href}
                     className={`
                       block w-full text-center py-3 px-6 rounded-2xl font-semibold transition-colors
@@ -202,7 +203,7 @@ export default function Pricing() {
                     `}
                   >
                     {plan.buttonText}
-                  </a>
+                  </Link>
                 ) : (
                   <button
                     onClick={(event) => handlePlanClick(plan, event)}

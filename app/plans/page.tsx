@@ -372,12 +372,12 @@ export default function PlansPage() {
           <div className="text-center mt-12">
             <p className="text-gray-600 text-sm">
               Need help choosing?{" "}
-              <a
+              <Link
                 href="mailto:support@reimburseme.com"
                 className="text-[#2E86DE] hover:underline"
               >
                 Contact our team
-              </a>
+              </Link>
             </p>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -40,30 +41,30 @@ export default function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             {menuItems.map((item) => (
-              <a
+              <Link
                 key={item.name}
                 href={item.href}
                 className="text-gray-600 hover:text-[#2E86DE] transition-colors duration-150 font-medium text-base"
               >
                 {item.name}
-              </a>
+              </Link>
             ))}
           </nav>
 
           {/* Desktop Action Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <a
+            <Link
               href="/account/signin"
               className="px-6 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
             >
               Sign In
-            </a>
-            <a
+            </Link>
+            <Link
               href="/account/signup"
               className="px-6 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-semibold rounded-2xl transition-colors"
             >
               Start Free Trial
-            </a>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -106,32 +107,32 @@ export default function Header() {
 
             <nav className="flex-1 px-6 py-6 space-y-4">
               {menuItems.map((item) => (
-                <a
+                <Link
                   key={item.name}
                   href={item.href}
                   className="block py-3 text-gray-600 hover:text-[#2E86DE] font-medium text-lg border-b border-gray-100 last:border-b-0"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.name}
-                </a>
+                </Link>
               ))}
             </nav>
 
             <div className="px-6 py-6 space-y-3 border-t border-gray-100">
-              <a
+              <Link
                 href="/account/signin"
                 className="block w-full text-center px-6 py-3 text-gray-700 font-medium border border-gray-300 rounded-2xl hover:bg-gray-50 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Sign In
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/account/signup"
                 className="block w-full text-center px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-semibold rounded-2xl transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Start Free Trial
-              </a>
+              </Link>
             </div>
           </div>
         )}
