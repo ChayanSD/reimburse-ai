@@ -5,7 +5,7 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "prepare": "husky"
@@ -24,7 +24,7 @@
     "dotenv": "^17.2.3",
     "isomorphic-dompurify": "^2.33.0",
     "lucide-react": "^0.555.0",
-    "next": "16.0.5",
+    "next": "16.0.7",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-hot-toast": "^2.6.0",
