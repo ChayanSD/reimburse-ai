@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import useUser from "@/utils/useUser";
@@ -82,9 +82,9 @@ interface UserDetailsResponse {
 type Timeframe = "7d" | "30d" | "90d" | "all";
 
 interface AdminUserDetailPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // API functions
@@ -116,6 +116,7 @@ const formatCurrency = (amount: number): string => {
 };
 
 export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
+  const { id } = use(params);
   const { data: currentUser, loading: userLoading } = useUser();
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>("30d");
   const queryClient = useQueryClient();
@@ -127,9 +128,9 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
     error,
     refetch: refetchUserData,
   } = useQuery<UserDetailsResponse, Error>({
-    queryKey: ["adminUserDetails", params.id, selectedTimeframe],
-    queryFn: () => fetchUserDetails(params.id, selectedTimeframe),
-    enabled: !!currentUser?.id && !!params.id,
+    queryKey: ["adminUserDetails", id, selectedTimeframe],
+    queryFn: () => fetchUserDetails(id, selectedTimeframe),
+    enabled: !!currentUser?.id && !!id,
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -139,8 +140,8 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
     mutationFn: deleteReceipt,
     onSuccess: () => {
       // Invalidate and refetch user data
-      queryClient.invalidateQueries({ 
-        queryKey: ["adminUserDetails", params.id, selectedTimeframe] 
+      queryClient.invalidateQueries({
+        queryKey: ["adminUserDetails", id, selectedTimeframe]
       });
     },
     onError: (error: Error) => {

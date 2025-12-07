@@ -14,7 +14,7 @@ interface SignInFormData {
 
 export default function SignInPage() {
   const router = useRouter();
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, isAuthenticated, isLoading, user } = useAuth();
 
   const [formData, setFormData] = useState<SignInFormData>({
     email: "",
@@ -23,12 +23,16 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Redirect authenticated users to dashboard
+  // Redirect authenticated users to dashboard or admin panel
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.push("/dashboard");
+      if (user?.role === 'ADMIN') {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, user, router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -55,7 +59,7 @@ export default function SignInPage() {
       const result = await login(formData.email, formData.password);
 
       if (result.success) {
-        router.push("/dashboard");
+        // Redirect will be handled by useEffect after user state updates
       } else {
         setError(result.error || "Sign in failed. Please try again.");
       }

@@ -32,9 +32,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const userIdInt = Number(user_id);
+
     // Get user basic info
     const userInfo = await prisma.authUser.findUnique({
-      where: { id: user_id },
+      where: { id: userIdInt },
       select: {
         id: true,
         email: true,
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Get user statistics
     const userStats = await prisma.receipt.aggregate({
-      where: { userId: user_id },
+      where: { userId: userIdInt },
       _count: { _all: true },
       _sum: { amount: true },
     });
@@ -75,7 +77,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const periodAgg = await prisma.receipt.aggregate({
         where: {
-          userId: user_id,
+          userId: userIdInt,
           createdAt: { gte: sinceDate },
         },
         _count: { _all: true },
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Get reports count
     const reportsStats = await prisma.report.aggregate({
-      where: { userId: user_id },
+      where: { userId: userIdInt },
       _count: { _all: true },
     });
 
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const reportsAgg = await prisma.report.aggregate({
         where: {
-          userId: user_id,
+          userId: userIdInt,
           createdAt: { gte: sinceDate },
         },
         _count: { _all: true },
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Get recent activity
     const recentActivity = await prisma.auditLog.findMany({
-      where: { userId: user_id },
+      where: { userId: userIdInt },
       select: {
         eventType: true,
         createdAt: true,
@@ -131,7 +133,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Get category breakdown
     const categoryBreakdown = await prisma.receipt.groupBy({
       by: ["category"],
-      where: { userId: user_id },
+      where: { userId: userIdInt },
       _count: { _all: true },
       _sum: { amount: true },
       orderBy: { _sum: { amount: "desc" } },
@@ -141,7 +143,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let receipts;
     if (timeframe === "all") {
       receipts = await prisma.receipt.findMany({
-        where: { userId: user_id },
+        where: { userId: userIdInt },
         select: {
           id: true,
           merchantName: true,
@@ -166,7 +168,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       receipts = await prisma.receipt.findMany({
         where: {
-          userId: user_id,
+          userId: userIdInt,
           createdAt: { gte: sinceDate },
         },
         select: {
@@ -185,7 +187,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Get last activity
     const lastActivityQuery = await prisma.auditLog.findFirst({
-      where: { userId: user_id },
+      where: { userId: userIdInt },
       select: { createdAt: true },
       orderBy: { createdAt: "desc" },
     });
