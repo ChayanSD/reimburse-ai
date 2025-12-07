@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import axios, { AxiosError } from "axios";
 import { useAuth } from "@/lib/hooks/useAuth";
 import AuthGuard from "@/components/AuthGuard";
@@ -47,6 +48,46 @@ interface User {
   reportsCount: number;
 }
 
+interface KeyMonitoringData {
+  keyUsageStats: {
+    [key: string]: {
+      totalRequests: number;
+      successRate: number;
+      lastUsed: string;
+      errorRate: number;
+      averageResponseTime: number;
+    };
+  };
+  recentEvents: Array<{
+    timestamp: string;
+    keyType: string;
+    operation: string;
+    success: boolean;
+    responseTime: number;
+    userId?: string;
+    error?: string;
+  }>;
+  securityAlerts: Array<{
+    id: string;
+    severity: string;
+    type: string;
+    message: string;
+    timestamp: string;
+    resolved: boolean;
+  }>;
+  summary: {
+    totalKeys: number;
+    activeKeys: number;
+    lastValidated: string;
+    securityScore: number;
+  };
+}
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  change: number;
+  icon: string;
+}
 // API call functions
 const fetchDashboardData = async (): Promise<DashboardData> => {
   try {
@@ -90,6 +131,27 @@ const fetchUsers = async (): Promise<User[]> => {
   }
 };
 
+const fetchKeyMonitoringData = async (): Promise<KeyMonitoringData> => {
+  try {
+    const response = await axios.get<KeyMonitoringData>("/api/admin/key-monitoring");
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ApiError>;
+
+      if (axiosError.response?.status === 403) {
+        throw new Error("Access denied. Admin privileges required.");
+      }
+
+      throw new Error(
+        axiosError.response?.data?.message ||
+        "Failed to fetch key monitoring data"
+      );
+    }
+    throw new Error("An unexpected error occurred");
+  }
+};
+
 export default function AdminPage() {
   return (
     <AuthGuard requireAdmin={true}>
@@ -100,6 +162,10 @@ export default function AdminPage() {
 
 function AdminContent() {
   const { user, isLoading: loading } = useAuth();
+  const [showKeyRotationModal, setShowKeyRotationModal] = useState(false);
+  const [selectedKeyType, setSelectedKeyType] = useState<string>("");
+  const [newKey, setNewKey] = useState<string>("");
+  const [rotationReason, setRotationReason] = useState<string>("");
 
   // React Query for data fetching
   const {
@@ -131,6 +197,44 @@ function AdminContent() {
     enabled: !!user && !loading,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+  const {
+    data: keyMonitoringData,
+    isLoading: loadingKeyMonitoring,
+    refetch: refetchKeyMonitoring,
+  } = useQuery<KeyMonitoringData, Error>({
+    queryKey: ["admin-key-monitoring"],
+    queryFn: fetchKeyMonitoringData,
+    enabled: !!user && !loading,
+    staleTime: 2 * 60 * 1000, // 2 minutes (more frequent for security data)
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Key rotation mutation
+  const rotateKeyMutation = useMutation({
+    mutationFn: async ({ keyType, newKey, reason }: { keyType: string; newKey: string; reason: string }) => {
+      const response = await axios.post("/api/admin/rotate-keys", {
+        keyType,
+        newKey,
+        reason,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      // Refresh key monitoring data
+      refetchKeyMonitoring();
+      // Close modal and reset form
+      setShowKeyRotationModal(false);
+      setSelectedKeyType("");
+      setNewKey("");
+      setRotationReason("");
+      alert("Key rotated successfully!");
+    },
+    onError: (error: Error) => {
+      console.error("Key rotation error:", error);
+      alert("Failed to rotate key: " + error.message);
+    },
   });
 
   // Show loading state while auth is loading
@@ -396,19 +500,81 @@ function AdminContent() {
                 )}
               </div>
             </div>
+
           </>
+        )}
+
+        {/* Key Rotation Modal */}
+        {showKeyRotationModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Rotate {selectedKeyType} Key</h3>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (selectedKeyType && newKey && rotationReason) {
+                    rotateKeyMutation.mutate({
+                      keyType: selectedKeyType,
+                      newKey,
+                      reason: rotationReason,
+                    });
+                  }
+                }}>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      New Key Value
+                    </label>
+                    <input
+                      type="password"
+                      value={newKey}
+                      onChange={(e) => setNewKey(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={`Enter new ${selectedKeyType} key`}
+                      required
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Reason for Rotation
+                    </label>
+                    <input
+                      type="text"
+                      value={rotationReason}
+                      onChange={(e) => setRotationReason(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., Security compromise, regular rotation"
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowKeyRotationModal(false);
+                        setSelectedKeyType("");
+                        setNewKey("");
+                        setRotationReason("");
+                      }}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={rotateKeyMutation.isPending}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {rotateKeyMutation.isPending ? "Rotating..." : "Rotate Key"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
-}
-
-// TypeScript interface for MetricCard props
-interface MetricCardProps {
-  title: string;
-  value: string | number;
-  change: number;
-  icon: string;
 }
 
 function MetricCard({ title, value, change, icon }: MetricCardProps) {
