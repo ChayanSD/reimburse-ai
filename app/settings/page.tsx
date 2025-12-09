@@ -23,9 +23,9 @@ interface SubscriptionData {
   features: string[];
 }
 
-interface ApiResponse<T> {
+interface ApiResponse {
   success?: boolean;
-  data?: T;
+  subscription?: SubscriptionData;
   error?: string;
   message?: string;
 }
@@ -40,11 +40,14 @@ const useSubscription = () => {
   return useQuery<SubscriptionData>({
     queryKey: ['subscription'],
     queryFn: async () => {
-      const response = await axios.get<ApiResponse<{ subscription: SubscriptionData }>>('/api/user/subscription');
+      const response = await axios.get<ApiResponse>('/api/user/subscription');
       if (response.data.error) {
         throw new Error(response.data.error);
       }
-      return response.data.data!.subscription;
+      if (!response.data.subscription) {
+        throw new Error('No subscription data received');
+      }
+      return response.data.subscription;
     },
     retry: 3,
     staleTime: 5 * 60 * 1000, // 5 minutes

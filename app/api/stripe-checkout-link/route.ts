@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
-import Stripe from "stripe";
 import { getStripeInstance } from "@/lib/stripe";
 
 type Plan = "free" | "pro" | "premium";
