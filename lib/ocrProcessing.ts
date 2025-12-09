@@ -14,31 +14,18 @@ interface ExtractedData {
 }
 
 async function imageUrlToBase64(imageUrl: string): Promise<string> {
-  try {
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status}`);
-    }
+  const response = await fetch(imageUrl);
+  if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
 
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64 = buffer.toString("base64");
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const contentType = response.headers.get("content-type") || "image/jpeg";
 
-    // Determine image type from content-type or URL
-    const contentType = response.headers.get("content-type") || "image/jpeg";
-
-    // Check if it's actually an image
-    if (!contentType.startsWith("image/")) {
-      throw new Error(
-        `Unsupported file type: ${contentType}. Only image files are supported for AI OCR.`
-      );
-    }
-
-    return `data:${contentType};base64,${base64}`;
-  } catch (error) {
-    console.error("Error converting image to base64:", error);
-    throw error;
+  if (!contentType.startsWith("image/")) {
+    throw new Error(`Unsupported file type: ${contentType}. Only images supported.`);
   }
+
+  return `data:${contentType};base64,${buffer.toString("base64")}`;
 }
 
 async function aiOCRExtraction(
@@ -230,71 +217,34 @@ Return ONLY the JSON response with no additional formatting or text:`,
   }
 }
 
-function validateAndFixDate(
-  dateString: string,
-  filename = ""
-): { date: string; confidence: string } {
-  // Current date for reference
+function validateAndFixDate(dateString: string, filename = ""): { date: string; confidence: string } {
   const today = new Date();
-  const currentYear = today.getFullYear();
-
   try {
-    // Try to parse the date string
     let parsedDate = new Date(dateString);
 
-    // If date is invalid, try common formats
     if (isNaN(parsedDate.getTime())) {
-      // Try MM/DD/YYYY format
-      const mmddyyyy = dateString.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (mmddyyyy) {
-        parsedDate = new Date(
-          parseInt(mmddyyyy[3]),
-          parseInt(mmddyyyy[1]) - 1,
-          parseInt(mmddyyyy[2])
-        );
-      }
+      const formats = [
+        /(\d{1,2})\/(\d{1,2})\/(\d{4})/, // MM/DD/YYYY
+        /(\d{1,2})-(\d{1,2})-(\d{4})/,  // MM-DD-YYYY
+      ];
 
-      // Try MM-DD-YYYY format
-      const mmddyyyy2 = dateString.match(/(\d{1,2})-(\d{1,2})-(\d{4})/);
-      if (mmddyyyy2) {
-        parsedDate = new Date(
-          parseInt(mmddyyyy2[3]),
-          parseInt(mmddyyyy2[1]) - 1,
-          parseInt(mmddyyyy2[2])
-        );
-      }
-
-      // Try DD/MM/YYYY format (less common in US)
-      const ddmmyyyy = dateString.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (ddmmyyyy && parseInt(ddmmyyyy[1]) > 12) {
-        parsedDate = new Date(
-          parseInt(ddmmyyyy[3]),
-          parseInt(ddmmyyyy[2]) - 1,
-          parseInt(ddmmyyyy[1])
-        );
+      for (const format of formats) {
+        const match = dateString.match(format);
+        if (match) {
+          parsedDate = new Date(parseInt(match[3]), parseInt(match[1]) - 1, parseInt(match[2]));
+          break;
+        }
       }
     }
 
-    // Check if date is reasonable (not in future, not too old)
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(currentYear - 1);
-    const tomorrow = new Date();
-    tomorrow.setDate(today.getDate() + 1);
+    const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
-    if (
-      isNaN(parsedDate.getTime()) ||
-      parsedDate > tomorrow ||
-      parsedDate < oneYearAgo
-    ) {
-      // Use filename hints or generate recent date
+    if (isNaN(parsedDate.getTime()) || parsedDate > tomorrow || parsedDate < oneYearAgo) {
       return generateReasonableDate(filename);
     }
 
-    // Return valid date
-    return {
-      date: parsedDate.toISOString().split("T")[0],
-      confidence: "high",
-    };
+    return { date: parsedDate.toISOString().split("T")[0], confidence: "high" };
   } catch (error) {
     console.error("Date parsing error:", error);
     return generateReasonableDate(filename);
@@ -372,9 +322,7 @@ function generateReasonableDate(filename = ""): {
 function enhancedPatternExtraction(filename = ""): ExtractedData {
   const lowerFilename = filename.toLowerCase();
 
-  // Comprehensive merchant patterns
-  const merchantPatterns = {
-    // Coffee & Food
+  const merchantPatterns: Record<string, { name: string; category: string; avgAmount: [number, number] }> = {
     starbucks: { name: "Starbucks", category: "Meals", avgAmount: [4, 12] },
     coffee: { name: "Coffee Shop", category: "Meals", avgAmount: [3, 8] },
     dunkin: { name: "Dunkin", category: "Meals", avgAmount: [3, 10] },
@@ -385,8 +333,6 @@ function enhancedPatternExtraction(filename = ""): ExtractedData {
     pizza: { name: "Pizza Place", category: "Meals", avgAmount: [12, 25] },
     restaurant: { name: "Restaurant", category: "Meals", avgAmount: [15, 50] },
     diner: { name: "Diner", category: "Meals", avgAmount: [8, 25] },
-
-    // Travel
     uber: { name: "Uber", category: "Travel", avgAmount: [8, 35] },
     lyft: { name: "Lyft", category: "Travel", avgAmount: [8, 35] },
     taxi: { name: "Taxi", category: "Travel", avgAmount: [10, 40] },
@@ -399,42 +345,16 @@ function enhancedPatternExtraction(filename = ""): ExtractedData {
     motel: { name: "Motel", category: "Travel", avgAmount: [50, 150] },
     marriott: { name: "Marriott", category: "Travel", avgAmount: [100, 400] },
     hilton: { name: "Hilton", category: "Travel", avgAmount: [100, 400] },
-    delta: {
-      name: "Delta Air Lines",
-      category: "Travel",
-      avgAmount: [200, 800],
-    },
-    american: {
-      name: "American Airlines",
-      category: "Travel",
-      avgAmount: [200, 800],
-    },
-    southwest: {
-      name: "Southwest Airlines",
-      category: "Travel",
-      avgAmount: [150, 600],
-    },
-    united: {
-      name: "United Airlines",
-      category: "Travel",
-      avgAmount: [200, 800],
-    },
+    delta: { name: "Delta Air Lines", category: "Travel", avgAmount: [200, 800] },
+    american: { name: "American Airlines", category: "Travel", avgAmount: [200, 800] },
+    southwest: { name: "Southwest Airlines", category: "Travel", avgAmount: [150, 600] },
+    united: { name: "United Airlines", category: "Travel", avgAmount: [200, 800] },
     parking: { name: "Parking", category: "Travel", avgAmount: [5, 30] },
-
-    // Supplies
-    office: {
-      name: "Office Depot",
-      category: "Supplies",
-      avgAmount: [15, 100],
-    },
+    office: { name: "Office Depot", category: "Supplies", avgAmount: [15, 100] },
     staples: { name: "Staples", category: "Supplies", avgAmount: [15, 100] },
     depot: { name: "Office Depot", category: "Supplies", avgAmount: [15, 100] },
     amazon: { name: "Amazon", category: "Supplies", avgAmount: [10, 200] },
-    "best buy": {
-      name: "Best Buy",
-      category: "Supplies",
-      avgAmount: [20, 500],
-    },
+    "best buy": { name: "Best Buy", category: "Supplies", avgAmount: [20, 500] },
     costco: { name: "Costco", category: "Supplies", avgAmount: [50, 300] },
     walmart: { name: "Walmart", category: "Supplies", avgAmount: [10, 150] },
     target: { name: "Target", category: "Supplies", avgAmount: [15, 200] },
@@ -443,40 +363,23 @@ function enhancedPatternExtraction(filename = ""): ExtractedData {
     print: { name: "Print Shop", category: "Supplies", avgAmount: [5, 40] },
   };
 
-  // Find matching pattern
-  let matchedMerchant = null;
-  for (const [pattern, merchant] of Object.entries(merchantPatterns)) {
-    if (lowerFilename.includes(pattern)) {
-      matchedMerchant = merchant;
-      break;
-    }
-  }
+  const matchedMerchant = Object.entries(merchantPatterns).find(([pattern]) =>
+    lowerFilename.includes(pattern)
+  )?.[1];
 
-  // Generate realistic amount within range
-  let amount;
-  if (matchedMerchant && matchedMerchant.avgAmount) {
-    const [min, max] = matchedMerchant.avgAmount;
-    amount =
-      Math.floor(Math.random() * (max - min + 1)) + min + Math.random() * 0.99;
-    amount = Math.round(amount * 100) / 100; // Round to 2 decimals
-  } else {
-    amount = Math.floor(Math.random() * 50) + 5 + Math.random() * 0.99;
-    amount = Math.round(amount * 100) / 100;
-  }
+  const [min = 5, max = 50] = matchedMerchant?.avgAmount || [5, 50];
+  const amount = Math.round((Math.random() * (max - min) + min + Math.random()) * 100) / 100;
 
-  // Use improved date generation
   const dateResult = generateReasonableDate(filename);
 
-  const result = {
-    merchant_name: matchedMerchant ? matchedMerchant.name : "Unknown Merchant",
-    amount: amount,
-    category: matchedMerchant ? matchedMerchant.category : "Other",
+  return {
+    merchant_name: matchedMerchant?.name || "Unknown Merchant",
+    amount,
+    category: matchedMerchant?.category || "Other",
     receipt_date: dateResult.date,
     confidence: dateResult.confidence,
     date_source: "estimated",
   };
-  console.log("OCR Processing: Pattern extraction result", result);
-  return result;
 }
 
 function normalizeCurrency(
