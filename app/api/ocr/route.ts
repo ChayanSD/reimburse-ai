@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ocrRequestSchema } from "@/validation/ocr.validation";
-import { handleDatabaseError, handleValidationError, badRequest, unauthorized } from "@/lib/error";
-import { RATE_LIMITS , limitByUser } from "@/lib/rateLimit";
+import OpenAI from "openai";
+import {
+  handleDatabaseError,
+  handleValidationError,
+  badRequest,
+  unauthorized,
+} from "@/lib/error";
+import { RATE_LIMITS, limitByUser } from "@/lib/rateLimit";
 import { sanitizeUrl, sanitizeText } from "@/lib/sanitize";
 import { withKeyProtection, SecureKeyStore } from "@/lib/security";
 import prisma from "@/lib/prisma";
@@ -32,6 +38,11 @@ async function imageUrlToBase64(imageUrl: string): Promise<string> {
     // Determine image type from content-type or URL
     const contentType = response.headers.get("content-type") || "image/jpeg";
 
+    // Check if it's actually an image
+    if (!contentType.startsWith("image/")) {
+      throw new Error(`Unsupported file type: ${contentType}. Only image files are supported for AI OCR.`);
+    }
+
     return `data:${contentType};base64,${base64}`;
   } catch (error) {
     console.error("Error converting image to base64:", error);
@@ -39,7 +50,10 @@ async function imageUrlToBase64(imageUrl: string): Promise<string> {
   }
 }
 
-async function aiOCRExtraction(fileUrl: string, filename: string): Promise<ExtractedData> {
+async function aiOCRExtraction(
+  fileUrl: string,
+  filename: string
+): Promise<ExtractedData> {
   try {
     console.log("Starting AI OCR extraction for:", fileUrl);
 
@@ -135,49 +149,30 @@ Return ONLY the JSON response with no additional formatting or text:`,
       },
     ];
 
-    // Use GPT-4 Vision for receipt analysis with OpenAI API (with key protection)
-    const response = await withKeyProtection('openai', 'vision_analysis', async () => {
-      const openaiKey = SecureKeyStore.getKey('openai');
-      
-      return fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openaiKey}`,
-          "Content-Type": "application/json",
-          "User-Agent": "ReimburseMe/1.0",
-        },
-        body: JSON.stringify({
-          model: "gpt-4-vision-preview",
-          messages: messages,
+    // Use GPT-4 Vision for receipt analysis with OpenAI package (with key protection)
+    const data = await withKeyProtection(
+      "openai",
+      "vision_analysis",
+      async () => {
+        const openaiKey = SecureKeyStore.getKey("openai");
+        const openai = new OpenAI({ apiKey: openaiKey });
+
+        return await openai.chat.completions.create({
+          model: "gpt-4o",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          messages: messages as any,
           max_tokens: 1000,
           temperature: 0.1,
-        }),
-      });
-    });
-
-    console.log("Vision API response status:", response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("OpenAI API error:", errorText);
-      
-      // Handle specific OpenAI errors
-      if (response.status === 401) {
-        throw new Error("OpenAI API key invalid or missing");
-      } else if (response.status === 429) {
-        throw new Error("OpenAI API rate limit exceeded");
-      } else if (response.status === 500) {
-        throw new Error("OpenAI API server error");
+        });
       }
-      
-      throw new Error(`OpenAI API failed: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
+    );
     console.log("Vision API response:", data);
 
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const content = data.choices[0].message.content;
+      if (!content) {
+        throw new Error("No content in OpenAI response");
+      }
       console.log("Raw vision content:", content);
 
       try {
@@ -196,20 +191,20 @@ Return ONLY the JSON response with no additional formatting or text:`,
           // Validate and sanitize the extracted data
           const validatedData = {
             merchant_name: String(
-              extractedData.merchant_name || "Unknown Merchant",
+              extractedData.merchant_name || "Unknown Merchant"
             ).trim(),
             amount: parseFloat(extractedData.amount) || 0,
             category: ["Meals", "Travel", "Supplies", "Other"].includes(
-              extractedData.category,
+              extractedData.category
             )
               ? extractedData.category
               : "Other",
             receipt_date: validateAndFixDate(
               extractedData.receipt_date,
-              filename,
+              filename
             ).date,
             confidence: ["high", "medium", "low"].includes(
-              extractedData.confidence,
+              extractedData.confidence
             )
               ? extractedData.confidence
               : "medium",
@@ -220,7 +215,7 @@ Return ONLY the JSON response with no additional formatting or text:`,
 
           console.log(
             "Successfully extracted and validated data:",
-            validatedData,
+            validatedData
           );
           return validatedData;
         } else {
@@ -243,7 +238,10 @@ Return ONLY the JSON response with no additional formatting or text:`,
   }
 }
 
-function validateAndFixDate(dateString: string, filename = ""): { date: string; confidence: string } {
+function validateAndFixDate(
+  dateString: string,
+  filename = ""
+): { date: string; confidence: string } {
   // Current date for reference
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -257,19 +255,31 @@ function validateAndFixDate(dateString: string, filename = ""): { date: string; 
       // Try MM/DD/YYYY format
       const mmddyyyy = dateString.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if (mmddyyyy) {
-        parsedDate = new Date(parseInt(mmddyyyy[3]), parseInt(mmddyyyy[1]) - 1, parseInt(mmddyyyy[2]));
+        parsedDate = new Date(
+          parseInt(mmddyyyy[3]),
+          parseInt(mmddyyyy[1]) - 1,
+          parseInt(mmddyyyy[2])
+        );
       }
 
       // Try MM-DD-YYYY format
       const mmddyyyy2 = dateString.match(/(\d{1,2})-(\d{1,2})-(\d{4})/);
       if (mmddyyyy2) {
-        parsedDate = new Date(parseInt(mmddyyyy2[3]), parseInt(mmddyyyy2[1]) - 1, parseInt(mmddyyyy2[2]));
+        parsedDate = new Date(
+          parseInt(mmddyyyy2[3]),
+          parseInt(mmddyyyy2[1]) - 1,
+          parseInt(mmddyyyy2[2])
+        );
       }
 
       // Try DD/MM/YYYY format (less common in US)
       const ddmmyyyy = dateString.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if (ddmmyyyy && parseInt(ddmmyyyy[1]) > 12) {
-        parsedDate = new Date(parseInt(ddmmyyyy[3]), parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]));
+        parsedDate = new Date(
+          parseInt(ddmmyyyy[3]),
+          parseInt(ddmmyyyy[2]) - 1,
+          parseInt(ddmmyyyy[1])
+        );
       }
     }
 
@@ -279,7 +289,11 @@ function validateAndFixDate(dateString: string, filename = ""): { date: string; 
     const tomorrow = new Date();
     tomorrow.setDate(today.getDate() + 1);
 
-    if (isNaN(parsedDate.getTime()) || parsedDate > tomorrow || parsedDate < oneYearAgo) {
+    if (
+      isNaN(parsedDate.getTime()) ||
+      parsedDate > tomorrow ||
+      parsedDate < oneYearAgo
+    ) {
       // Use filename hints or generate recent date
       return generateReasonableDate(filename);
     }
@@ -296,7 +310,10 @@ function validateAndFixDate(dateString: string, filename = ""): { date: string; 
 }
 
 // Generate reasonable date based on filename or recent date
-function generateReasonableDate(filename = ""): { date: string; confidence: string } {
+function generateReasonableDate(filename = ""): {
+  date: string;
+  confidence: string;
+} {
   const today = new Date();
 
   // Look for date patterns in filename
@@ -315,7 +332,10 @@ function generateReasonableDate(filename = ""): { date: string; confidence: stri
       day <= 31
     ) {
       return {
-        date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+        date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(
+          2,
+          "0"
+        )}`,
         confidence: "medium",
       };
     }
@@ -337,7 +357,10 @@ function generateReasonableDate(filename = ""): { date: string; confidence: stri
       day <= 31
     ) {
       return {
-        date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+        date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(
+          2,
+          "0"
+        )}`,
         confidence: "medium",
       };
     }
@@ -462,58 +485,61 @@ function enhancedPatternExtraction(filename = ""): ExtractedData {
   };
 }
 
-function normalizeCurrency(amount: string | number, currency = "USD"): { amount: number; currency: string; symbol: string } {
+function normalizeCurrency(
+  amount: string | number,
+  currency = "USD"
+): { amount: number; currency: string; symbol: string } {
   // Extract numeric value and currency symbol
   const numericMatch = String(amount).match(/(\d+\.?\d*)/);
   const numericValue = numericMatch ? parseFloat(numericMatch[1]) : 0;
-  
+
   // Detect currency symbol and normalize
   const symbolMatch = String(amount).match(/[$€£¥₹]/);
   let detectedCurrency = currency;
-  
+
   if (symbolMatch) {
     const symbol = symbolMatch[0];
     const symbolMap: Record<string, string> = {
-      '$': 'USD',
-      '€': 'EUR',
-      '£': 'GBP',
-      '¥': 'JPY',
-      '₹': 'INR'
+      $: "USD",
+      "€": "EUR",
+      "£": "GBP",
+      "¥": "JPY",
+      "₹": "INR",
     };
     detectedCurrency = symbolMap[symbol] || currency;
   }
-  
+
   return {
     amount: numericValue,
     currency: detectedCurrency,
-    symbol: symbolMatch ? symbolMatch[0] : '$'
+    symbol: symbolMatch ? symbolMatch[0] : "$",
   };
 }
 
 function normalizeMerchant(merchantName: string): string {
   if (!merchantName) return "Unknown Merchant";
-  
+
   // Remove common noise patterns
   let normalized = merchantName
-    .replace(/\*TRIP.*$/i, '') // Remove "*TRIP 3H..." patterns
-    .replace(/\s+\*\s*.*$/i, '') // Remove trailing asterisk patterns
-    .replace(/\s+#\d+.*$/i, '') // Remove store numbers
-    .replace(/\s+\d{4}.*$/i, '') // Remove 4-digit codes
-    .replace(/\s+-\s+.*$/i, '') // Remove location suffixes
+    .replace(/\*TRIP.*$/i, "") // Remove "*TRIP 3H..." patterns
+    .replace(/\s+\*\s*.*$/i, "") // Remove trailing asterisk patterns
+    .replace(/\s+#\d+.*$/i, "") // Remove store numbers
+    .replace(/\s+\d{4}.*$/i, "") // Remove 4-digit codes
+    .replace(/\s+-\s+.*$/i, "") // Remove location suffixes
     .trim();
-  
+
   // Collapse multiple spaces
-  normalized = normalized.replace(/\s+/g, ' ');
-  
+  normalized = normalized.replace(/\s+/g, " ");
+
   // Title case
-  normalized = normalized.replace(/\b\w/g, l => l.toUpperCase());
-  
+  normalized = normalized.replace(/\b\w/g, (l) => l.toUpperCase());
+
   return normalized || "Unknown Merchant";
 }
 
 function parseDateRobust(dateString: string): string | null {
   if (!dateString) return null;
-  
+
   // Try various date formats
   const formats = [
     /(\d{4})-(\d{1,2})-(\d{1,2})/, // YYYY-MM-DD
@@ -522,12 +548,12 @@ function parseDateRobust(dateString: string): string | null {
     /(\d{1,2})\/(\d{1,2})\/(\d{2})/, // MM/DD/YY
     /(\d{1,2})-(\d{1,2})-(\d{2})/, // MM-DD-YY
   ];
-  
+
   for (const format of formats) {
     const match = dateString.match(format);
     if (match) {
       let year, month, day;
-      
+
       if (format === formats[0]) {
         // YYYY-MM-DD
         [, year, month, day] = match;
@@ -537,20 +563,26 @@ function parseDateRobust(dateString: string): string | null {
       } else {
         // MM/DD/YY or MM-DD-YY
         [, month, day, year] = match;
-        year = parseInt(year) < 50 ? 2000 + parseInt(year) : 1900 + parseInt(year);
+        year =
+          parseInt(year) < 50 ? 2000 + parseInt(year) : 1900 + parseInt(year);
       }
-      
+
       const date = new Date(Number(year), Number(month) - 1, Number(day));
       if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
+        return date.toISOString().split("T")[0];
       }
     }
   }
-  
+
   return null;
 }
 
-async function checkForDuplicate(userId: number, merchant: string, amount: number, date: string): Promise<boolean> {
+async function checkForDuplicate(
+  userId: number,
+  merchant: string,
+  amount: number,
+  date: string
+): Promise<boolean> {
   try {
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
@@ -562,9 +594,9 @@ async function checkForDuplicate(userId: number, merchant: string, amount: numbe
         amount: amount,
         receiptDate: new Date(date),
         createdAt: {
-          gt: ninetyDaysAgo
-        }
-      }
+          gt: ninetyDaysAgo,
+        },
+      },
     });
 
     return !!duplicate;
@@ -574,7 +606,7 @@ async function checkForDuplicate(userId: number, merchant: string, amount: numbe
   }
 }
 
-export async function POST(request : NextRequest) : Promise<NextResponse> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getSession();
 
@@ -586,9 +618,17 @@ export async function POST(request : NextRequest) : Promise<NextResponse> {
     const body = await request.json();
 
     // Rate limiting
-    const rateLimit = await limitByUser(userId, "ocr:process", RATE_LIMITS.OCR_PROCESS.windowMs, RATE_LIMITS.OCR_PROCESS.max);
+    const rateLimit = await limitByUser(
+      userId,
+      "ocr:process",
+      RATE_LIMITS.OCR_PROCESS.windowMs,
+      RATE_LIMITS.OCR_PROCESS.max
+    );
     if (!rateLimit.ok) {
-      return NextResponse.json({ error: "Rate limit exceeded", reset: rateLimit.reset }, { status: 429 });
+      return NextResponse.json(
+        { error: "Rate limit exceeded", reset: rateLimit.reset },
+        { status: 429 }
+      );
     }
 
     // Validate input with Zod
@@ -608,19 +648,32 @@ export async function POST(request : NextRequest) : Promise<NextResponse> {
     }
 
     // Use AI-powered extraction
-    const extractedData = await aiOCRExtraction(sanitizedFileUrl, sanitizedFilename);
+    const extractedData = await aiOCRExtraction(
+      sanitizedFileUrl,
+      sanitizedFilename
+    );
 
     // Enhanced post-processing
     const normalizedMerchant = normalizeMerchant(extractedData.merchant_name);
-    const currencyData = normalizeCurrency(extractedData.amount, 'USD');
-    const normalizedDate = parseDateRobust(extractedData.receipt_date) || extractedData.receipt_date;
+    const currencyData = normalizeCurrency(extractedData.amount, "USD");
+    const normalizedDate =
+      parseDateRobust(extractedData.receipt_date) || extractedData.receipt_date;
 
     // Check for duplicates
-    const isDuplicate = await checkForDuplicate(userId, normalizedMerchant, currencyData.amount, normalizedDate);
+    const isDuplicate = await checkForDuplicate(
+      userId,
+      normalizedMerchant,
+      currencyData.amount,
+      normalizedDate
+    );
 
     // Determine confidence and review flags
-    const confidence = extractedData.confidence === "high" ? 0.9 :
-                     extractedData.confidence === "medium" ? 0.7 : 0.5;
+    const confidence =
+      extractedData.confidence === "high"
+        ? 0.9
+        : extractedData.confidence === "medium"
+        ? 0.7
+        : 0.5;
     const needsReview = confidence < 0.72;
 
     const processedData = {
@@ -633,13 +686,16 @@ export async function POST(request : NextRequest) : Promise<NextResponse> {
       needs_review: needsReview,
       is_duplicate: isDuplicate,
       date_iso: normalizedDate,
-      extraction_notes: 'extraction_notes' in extractedData ? extractedData.extraction_notes : "Processed with enhanced normalization",
+      extraction_notes:
+        "extraction_notes" in extractedData
+          ? extractedData.extraction_notes
+          : "Processed with enhanced normalization",
       original_data: {
         merchant: extractedData.merchant_name,
         amount: extractedData.amount,
         date: extractedData.receipt_date,
-        confidence: extractedData.confidence
-      }
+        confidence: extractedData.confidence,
+      },
     };
 
     return NextResponse.json({
