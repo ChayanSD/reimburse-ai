@@ -13,6 +13,8 @@ import { withKeyProtection, SecureKeyStore } from "@/lib/security";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
+export const runtime = "nodejs";
+
 interface ExtractedData {
   merchant_name: string;
   amount: number;
