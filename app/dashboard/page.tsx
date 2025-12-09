@@ -17,6 +17,8 @@ import {
   Crown,
   X,
   AlertCircle,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -31,6 +33,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Types
 interface User {
@@ -591,9 +600,11 @@ export default function DashboardPage() {
             <div className="flex flex-col md:flex-row items-start md:items-center space-y-2 md:space-y-0 md:space-x-4">
               <Link
                 href="/company-settings"
-                className="text-gray-600 hover:text-gray-800 font-medium text-sm md:text-base"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium text-sm md:text-base"
+                title="Company Settings"
               >
-                Company Settings
+                <Settings size={18} />
+                <span className="hidden md:inline">Company Settings</span>
               </Link>
               {(user as User)?.is_admin && (
                 <Link
@@ -612,9 +623,11 @@ export default function DashboardPage() {
               </Link>
               <Link
                 href="/account/logout"
-                className="text-gray-600 hover:text-gray-800 font-medium text-sm md:text-base"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium text-sm md:text-base"
+                title="Sign Out"
               >
-                Sign Out
+                <LogOut size={18} />
+                <span className="hidden md:inline">Sign Out</span>
               </Link>
             </div>
           </div>
@@ -735,36 +748,41 @@ export default function DashboardPage() {
           </div>
 
           {/* Enhanced Filters and Actions */}
-          <div className="bg-white rounded-3xl p-6 border border-gray-200 mb-6">
-            {/* Main Filter Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+          <div className="bg-white rounded-3xl p-4 md:p-6 border border-gray-200 mb-6">
+            {/* Main Filter Grid - Mobile Optimized */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 md:gap-6 mb-6">
               {/* Company Selection */}
-              <div className="lg:col-span-3">
+              <div className="sm:col-span-2 lg:col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Report For
                 </label>
                 {companySettings.length > 0 ? (
-                  <select
-                    value={selectedCompanySetting || ""}
-                    onChange={(e) => setSelectedCompanySetting(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                  <Select
+                    value={selectedCompanySetting?.toString() || ""}
+                    onValueChange={(value) => setSelectedCompanySetting(value ? Number(value) : null)}
                   >
-                    {companySettings.map((setting) => (
-                      <option key={setting.id} value={String(setting.id)}>
-                        {setting.companyName}
-                        {setting.isDefault && " (Default)"}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full h-9 px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent text-sm bg-white">
+                      <SelectValue placeholder="Select company" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-300 rounded-xl shadow-lg">
+                      {companySettings.map((setting) => (
+                        <SelectItem key={setting.id} value={String(setting.id)} className="text-sm">
+                          {setting.companyName}
+                          {setting.isDefault && " (Default)"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <div className="space-y-2">
-                    <div className="px-3 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-500">
+                    <div className="px-3 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-500 text-sm h-9 flex items-center">
                       No company settings found
                     </div>
                     <Link
                       href="/company-settings"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-xl transition-colors text-sm"
+                      className="inline-flex items-center gap-2 px-3 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-xl transition-colors text-sm"
                     >
+                      <Settings size={16} />
                       Add Company Settings
                     </Link>
                   </div>
@@ -772,53 +790,61 @@ export default function DashboardPage() {
               </div>
 
               {/* Date Range Filter */}
-              <div className="lg:col-span-2">
+              <div className="sm:col-span-2 lg:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Date Range
                 </label>
-                <select
+                <Select
                   value={filters.dateRange}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      dateRange: e.target.value as Filters["dateRange"],
+                      dateRange: value as Filters["dateRange"],
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
                 >
-                  <option value="all">All Time</option>
-                  <option value="last_30">Last 30 Days</option>
-                  <option value="last_90">Last 90 Days</option>
-                  <option value="current_month">Current Month</option>
-                  <option value="custom">Custom Range</option>
-                </select>
+                  <SelectTrigger className="w-full h-9 px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent text-sm bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-300 rounded-xl shadow-lg">
+                    <SelectItem value="all" className="text-sm">All Time</SelectItem>
+                    <SelectItem value="last_30" className="text-sm">Last 30 Days</SelectItem>
+                    <SelectItem value="last_90" className="text-sm">Last 90 Days</SelectItem>
+                    <SelectItem value="current_month" className="text-sm">Current Month</SelectItem>
+                    <SelectItem value="custom" className="text-sm">Custom Range</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Category Filter */}
-              <div className="lg:col-span-2">
+              <div className="sm:col-span-2 lg:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Category
                 </label>
-                <select
+                <Select
                   value={filters.category}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      category: e.target.value,
+                      category: value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
                 >
-                  <option value="all">All Categories</option>
-                  <option value="Meals">Meals</option>
-                  <option value="Travel">Travel</option>
-                  <option value="Supplies">Supplies</option>
-                  <option value="Other">Other</option>
-                </select>
+                  <SelectTrigger className="w-full h-9 px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent text-sm bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-300 rounded-xl shadow-lg">
+                    <SelectItem value="all" className="text-sm">All Categories</SelectItem>
+                    <SelectItem value="Meals" className="text-sm">Meals</SelectItem>
+                    <SelectItem value="Travel" className="text-sm">Travel</SelectItem>
+                    <SelectItem value="Supplies" className="text-sm">Supplies</SelectItem>
+                    <SelectItem value="Other" className="text-sm">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Merchant Search */}
-              <div className="lg:col-span-3">
+              <div className="sm:col-span-2 lg:col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Search Merchant
                 </label>
@@ -832,15 +858,15 @@ export default function DashboardPage() {
                     }))
                   }
                   placeholder="Search merchant..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent text-sm"
                 />
               </div>
 
               {/* Reset Button */}
-              <div className="lg:col-span-2 flex items-end">
+              <div className="sm:col-span-2 lg:col-span-2 flex items-end">
                 <button
                   onClick={resetFilters}
-                  className="w-full px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-xl transition-colors"
+                  className="w-full px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-xl transition-colors text-sm"
                 >
                   Reset Filters
                 </button>
@@ -863,7 +889,7 @@ export default function DashboardPage() {
                         customStartDate: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent text-sm"
                   />
                 </div>
                 <div>
@@ -879,7 +905,7 @@ export default function DashboardPage() {
                         customEndDate: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent text-sm"
                   />
                 </div>
               </div>
@@ -890,7 +916,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => handleGenerateReport("csv")}
                 disabled={reportMutation.isPending || receipts.length === 0}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-xl transition-colors disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
                 <Download size={18} />
                 CSV Report
@@ -898,7 +924,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => handleGenerateReport("pdf")}
                 disabled={reportMutation.isPending || receipts.length === 0}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-xl transition-colors disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
                 <Download size={18} />
                 PDF Report

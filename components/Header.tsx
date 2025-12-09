@@ -4,9 +4,11 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   const menuItems = [
     { name: "Features", href: "#features" },
@@ -53,18 +55,37 @@ export default function Header() {
 
           {/* Desktop Action Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link
-              href="/account/signin"
-              className="px-6 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/account/signup"
-              className="px-6 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-semibold rounded-2xl transition-colors"
-            >
-              Start Free Trial
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="px-6 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-semibold rounded-2xl transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/profile"
+                  className="px-6 py-2 text-gray-700 hover:text-[#2E86DE] font-medium transition-colors"
+                >
+                  Profile
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/account/signin"
+                  className="px-6 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/account/signup"
+                  className="px-6 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-semibold rounded-2xl transition-colors"
+                >
+                  Start Free Trial
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -119,20 +140,41 @@ export default function Header() {
             </nav>
 
             <div className="px-6 py-6 space-y-3 border-t border-gray-100">
-              <Link
-                href="/account/signin"
-                className="block w-full text-center px-6 py-3 text-gray-700 font-medium border border-gray-300 rounded-2xl hover:bg-gray-50 transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/account/signup"
-                className="block w-full text-center px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-semibold rounded-2xl transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Start Free Trial
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className="block w-full text-center px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-semibold rounded-2xl transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    href="/profile"
+                    className="block w-full text-center px-6 py-3 text-gray-700 font-medium border border-gray-300 rounded-2xl hover:bg-gray-50 transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/account/signin"
+                    className="block w-full text-center px-6 py-3 text-gray-700 font-medium border border-gray-300 rounded-2xl hover:bg-gray-50 transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/account/signup"
+                    className="block w-full text-center px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-semibold rounded-2xl transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Start Free Trial
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}
