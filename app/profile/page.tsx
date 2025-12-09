@@ -34,13 +34,6 @@ interface SubscriptionData {
   features: string[];
 }
 
-interface ApiResponse<T> {
-  success?: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
-
 // React Query Hooks
 const useSubscription = () => {
   return useQuery<SubscriptionData>({
