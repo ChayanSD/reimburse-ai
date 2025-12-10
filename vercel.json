@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "api/ocr/route.ts": {
+      "maxDuration": 10
+    },
+    "api/ocr/process/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/ocr/process",
+      "destination": "/api/ocr/process/route"
+    }
+  ]
+}
