@@ -52,6 +52,10 @@ function UploadContent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // State for async processing
+  const [receiptId, setReceiptId] = useState<number | null>(null);
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+
   // OCR processing mutation
   const ocrMutation = useMutation({
     mutationFn: async ({ fileUrl, filename }: { fileUrl: string; filename: string }) => {
@@ -62,12 +66,14 @@ function UploadContent() {
       return response.data;
     },
     onSuccess: (data) => {
-      setExtractedData(data.extracted_data);
-      setEditedData(data.extracted_data);
+      setReceiptId(data.receipt_id);
+      setProcessingStatus("processing");
+      // Start polling for status
+      pollReceiptStatus(data.receipt_id);
     },
     onError: (err: Error | unknown) => {
       console.error("OCR error:", err);
-      setError("Failed to extract receipt data. You can enter the details manually.");
+      setError("Failed to queue receipt for processing. You can enter the details manually.");
       // Set default data for manual entry
       const defaultData: ExtractedData = {
         merchant_name: "",
@@ -79,6 +85,73 @@ function UploadContent() {
       setEditedData(defaultData);
     },
   });
+
+  // Poll receipt status
+  const pollReceiptStatus = async (id: number) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await axios.get(`/api/ocr/status/${id}`);
+        const { status, data } = response.data;
+
+        setProcessingStatus(status);
+
+        if (status === "completed" && data) {
+          clearInterval(pollInterval);
+          const extractedData: ExtractedData = {
+            merchant_name: data.merchant_name,
+            amount: data.amount,
+            category: data.category,
+            receipt_date: data.receipt_date,
+            confidence: data.confidence,
+            currency: data.currency,
+            extraction_notes: data.notes,
+          };
+          setExtractedData(extractedData);
+          setEditedData(extractedData);
+        } else if (status === "failed") {
+          clearInterval(pollInterval);
+          setError("OCR processing failed. You can enter the details manually.");
+          // Set default data for manual entry
+          const defaultData: ExtractedData = {
+            merchant_name: "",
+            amount: "",
+            category: "Other",
+            receipt_date: new Date().toISOString().split("T")[0],
+          };
+          setExtractedData(defaultData);
+          setEditedData(defaultData);
+        }
+      } catch (error) {
+        console.error("Status polling error:", error);
+        clearInterval(pollInterval);
+        setError("Failed to check processing status. You can enter the details manually.");
+        const defaultData: ExtractedData = {
+          merchant_name: "",
+          amount: "",
+          category: "Other",
+          receipt_date: new Date().toISOString().split("T")[0],
+        };
+        setExtractedData(defaultData);
+        setEditedData(defaultData);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    // Stop polling after 2 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (processingStatus === "processing") {
+        setError("Processing is taking longer than expected. You can enter the details manually.");
+        const defaultData: ExtractedData = {
+          merchant_name: "",
+          amount: "",
+          category: "Other",
+          receipt_date: new Date().toISOString().split("T")[0],
+        };
+        setExtractedData(defaultData);
+        setEditedData(defaultData);
+      }
+    }, 120000);
+  };
 
   // Receipt saving mutation
   const saveReceiptMutation = useMutation({
@@ -422,7 +495,7 @@ function UploadContent() {
               </div>
 
               {/* OCR Processing */}
-              {isOcrLoading && (
+              {(isOcrLoading || processingStatus === "processing") && (
                 <div className="bg-white rounded-3xl p-6 border border-gray-200 text-center">
                   <div className="w-12 h-12 bg-[#2E86DE] bg-opacity-10 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
                     <Receipt size={24} className="text-[#2E86DE]" />
@@ -433,6 +506,11 @@ function UploadContent() {
                   <p className="text-gray-600">
                     AI is extracting data from your receipt
                   </p>
+                  {receiptId && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      Receipt ID: {receiptId}
+                    </p>
+                  )}
                 </div>
               )}
 

@@ -13,210 +13,6 @@ interface ExtractedData {
   currency?: string;
 }
 
-async function imageUrlToBase64(imageUrl: string): Promise<string> {
-  const response = await fetch(imageUrl);
-  if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
-
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  const contentType = response.headers.get("content-type") || "image/jpeg";
-
-  if (!contentType.startsWith("image/")) {
-    throw new Error(`Unsupported file type: ${contentType}. Only images supported.`);
-  }
-
-  return `data:${contentType};base64,${buffer.toString("base64")}`;
-}
-
-async function aiOCRExtraction(
-  fileUrl: string,
-  filename: string
-): Promise<ExtractedData> {
-  try {
-    console.log("OCR Processing: Starting AI OCR extraction", { fileUrl: fileUrl.substring(0, 50) + "...", filename });
-
-    // Convert image to base64
-    const base64Image = await imageUrlToBase64(fileUrl);
-    console.log("Successfully converted image to base64");
-
-    // Prepare the messages for GPT Vision
-    const messages = [
-      {
-        role: "system",
-        content: `You are an expert receipt OCR system. Analyze ANY type of receipt or payment confirmation and extract structured data with high accuracy.
-
-RECEIPT TYPES TO HANDLE:
-- Traditional paper receipts (restaurants, stores, gas stations)
-- Mobile app screenshots (Uber, Lyft, DoorDash, etc.)
-- Digital payment confirmations 
-- Email receipts
-- Online purchase confirmations
-- Bank/card transaction screenshots
-
-EXTRACTION PRIORITIES:
-
-1. MERCHANT NAME: Look for the business name ANYWHERE in the image
-   - Check app names, logos, company names in headers
-   - Look for brand names in prominent text
-   - Examples: "Lyft", "Uber", "Starbucks", "Amazon", "McDonald's"
-   - If it's a ride-sharing app (Uber/Lyft), use that as the merchant name
-   - If it's a food delivery app, look for the restaurant name AND the delivery service
-   - Remove store numbers, locations, and extra text
-
-2. TOTAL AMOUNT: Find the final amount paid
-   - Look for "Total", "Amount", "Charged", "Paid", "Final Total"
-   - Extract the numeric value with decimal (include cents)
-   - For ride-sharing: look for the final fare amount
-   - For food delivery: use the total after taxes and fees
-
-3. TRANSACTION DATE: Find the actual transaction/purchase date
-   - Look for dates in various formats: "Sep 29, 2025", "9/29/25", "2025-09-29"
-   - Include times if available: "8:23 PM", "20:23"
-   - Convert to YYYY-MM-DD format
-   - If multiple dates, use the transaction date (not print/screenshot date)
-
-4. CATEGORY: Classify the expense type based on the merchant/service
-   - Meals: Restaurants, cafes, food delivery (DoorDash, UberEats), grocery stores
-   - Travel: Uber, Lyft, taxis, gas stations, hotels, airlines, parking, car rental
-   - Supplies: Office supplies, Amazon, hardware stores, electronics, software
-   - Other: Everything else
-
-IMPORTANT NOTES:
-- Be very thorough in scanning the entire image for merchant information
-- Digital receipts often have the merchant name as the main app/service name
-- Look at logos, headers, company branding, and prominent text
-- Don't give up easily - the merchant name is usually clearly visible somewhere
-
-Return ONLY valid JSON in this exact format - no additional text or formatting:
-{
-  "merchant_name": "Exact merchant name",
-  "amount": 28.98,
-  "category": "Travel",
-  "receipt_date": "2025-09-29",
-  "confidence": "high",
-  "extraction_notes": "Brief description of what was found"
-}`,
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Analyze this receipt/payment confirmation image carefully and extract all the key information.
-
-Context: ${filename || "receipt"}
-Today's date: ${new Date().toISOString().split("T")[0]}
-
-Look for:
-- Company/app name, logos, or branding (this is often the merchant name)
-- The total amount charged or paid
-- The transaction date and time
-- What type of business/service this is for categorization
-
-Be thorough - scan the entire image for merchant information. Digital receipts often show the merchant name prominently as the app or service name.
-
-Return ONLY the JSON response with no additional formatting or text:`,
-          },
-          {
-            type: "image_url",
-            image_url: {
-              url: base64Image,
-            },
-          },
-        ],
-      },
-    ];
-
-    // Use GPT-4 Vision for receipt analysis with OpenAI package (with key protection)
-    console.log("OCR Processing: Calling OpenAI Vision API");
-    const data = await withKeyProtection(
-      "openai",
-      "vision_analysis",
-      async () => {
-        const openaiKey = SecureKeyStore.getKey("openai");
-        const openai = new OpenAI({ apiKey: openaiKey });
-
-        return await openai.chat.completions.create({
-          model: "gpt-4o",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          messages: messages as any,
-          max_tokens: 1000,
-          temperature: 0.1,
-        });
-      }
-    );
-    console.log("OCR Processing: Vision API response received", { hasChoices: !!data.choices, choiceCount: data.choices?.length });
-
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      const content = data.choices[0].message.content;
-      if (!content) {
-        throw new Error("No content in OpenAI response");
-      }
-      console.log("Raw vision content:", content);
-
-      try {
-        // Clean the content and extract JSON
-        const cleanContent = content.trim();
-        let jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-
-        // If no JSON found, try to parse the entire content as JSON
-        if (!jsonMatch) {
-          jsonMatch = [cleanContent];
-        }
-
-        if (jsonMatch) {
-          const extractedData = JSON.parse(jsonMatch[0]);
-
-          // Validate and sanitize the extracted data
-          const validatedData = {
-            merchant_name: String(
-              extractedData.merchant_name || "Unknown Merchant"
-            ).trim(),
-            amount: parseFloat(extractedData.amount) || 0,
-            category: ["Meals", "Travel", "Supplies", "Other"].includes(
-              extractedData.category
-            )
-              ? extractedData.category
-              : "Other",
-            receipt_date: validateAndFixDate(
-              extractedData.receipt_date,
-              filename
-            ).date,
-            confidence: ["high", "medium", "low"].includes(
-              extractedData.confidence
-            )
-              ? extractedData.confidence
-              : "medium",
-            date_source: "ai_vision",
-            extraction_notes:
-              extractedData.extraction_notes || "Extracted using AI vision",
-          };
-
-          console.log(
-            "Successfully extracted and validated data:",
-            validatedData
-          );
-          return validatedData;
-        } else {
-          throw new Error("No JSON found in vision response");
-        }
-      } catch (parseError) {
-        console.error("Failed to parse vision response as JSON:", parseError);
-        console.error("Raw response content:", content);
-        throw new Error("Invalid JSON response from vision API");
-      }
-    }
-
-    throw new Error("Invalid vision API response format");
-  } catch (error) {
-    console.error("OCR Processing: AI OCR extraction failed", error);
-
-    // Fallback to pattern matching
-    console.log("OCR Processing: Falling back to pattern matching", { filename });
-    return enhancedPatternExtraction(filename);
-  }
-}
-
 function validateAndFixDate(dateString: string, filename = ""): { date: string; confidence: string } {
   const today = new Date();
   try {
@@ -503,15 +299,151 @@ async function checkForDuplicate(
   }
 }
 
+// Cache for base64 conversion to avoid re-fetching
+const imageCache = new Map<string, { data: string; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function imageUrlToBase64(imageUrl: string): Promise<string> {
+  // Check cache first
+  const cached = imageCache.get(imageUrl);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  // Fetch with timeout
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+  try {
+    const response = await fetch(imageUrl, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0", // Some CDNs require this
+      },
+    });
+    
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+
+    if (!contentType.startsWith("image/")) {
+      throw new Error(`Unsupported file type: ${contentType}`);
+    }
+
+    const base64Data = `data:${contentType};base64,${buffer.toString("base64")}`;
+    
+    // Cache the result
+    imageCache.set(imageUrl, { data: base64Data, timestamp: Date.now() });
+    
+    // Clean old cache entries
+    if (imageCache.size > 100) {
+      const entries = Array.from(imageCache.entries());
+      entries
+        .filter(([, v]) => Date.now() - v.timestamp > CACHE_TTL)
+        .forEach(([k]) => imageCache.delete(k));
+    }
+
+    return base64Data;
+  } catch (error) {
+    clearTimeout(timeout);
+    throw error;
+  }
+}
+
+async function aiOCRExtraction(
+  fileUrl: string,
+  filename: string
+): Promise<ExtractedData> {
+  try {
+    console.log("Starting AI OCR extraction");
+
+    // Convert image to base64 with caching
+    const base64Image = await imageUrlToBase64(fileUrl);
+
+    // Simplified, more concise system prompt
+    const systemPrompt = `Extract receipt data as JSON. Return ONLY JSON, no extra text:
+{
+  "merchant_name": "Business name",
+  "amount": 0.00,
+  "category": "Meals|Travel|Supplies|Other",
+  "receipt_date": "YYYY-MM-DD",
+  "confidence": "high|medium|low",
+  "extraction_notes": "Brief note"
+}`;
+
+    const userPrompt = `Extract data from this ${filename || "receipt"}.
+Today: ${new Date().toISOString().split("T")[0]}
+Return only JSON.`;
+
+    // Use GPT-4o-mini for faster, cheaper processing (or gpt-4o for accuracy)
+    const data = await withKeyProtection(
+      "openai",
+      "vision_analysis",
+      async () => {
+        const openai = new OpenAI({ 
+          apiKey: SecureKeyStore.getKey("openai"),
+          timeout: 30000, // 30s timeout
+        });
+
+        return await openai.chat.completions.create({
+          model: "gpt-4o-mini", // Faster and cheaper
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: userPrompt },
+                { type: "image_url", image_url: { url: base64Image, detail: "low" } },
+              ],
+            },
+          ],
+          max_tokens: 500, // Reduced from 1000
+          temperature: 0,
+          response_format: { type: "json_object" }, // Force JSON response
+        });
+      }
+    );
+
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error("No content in response");
+
+    const extractedData = JSON.parse(content);
+
+    // Validate and return
+    return {
+      merchant_name: String(extractedData.merchant_name || "Unknown Merchant").trim(),
+      amount: parseFloat(extractedData.amount) || 0,
+      category: ["Meals", "Travel", "Supplies", "Other"].includes(extractedData.category)
+        ? extractedData.category
+        : "Other",
+      receipt_date: extractedData.receipt_date || new Date().toISOString().split("T")[0],
+      confidence: ["high", "medium", "low"].includes(extractedData.confidence)
+        ? extractedData.confidence
+        : "medium",
+      date_source: "ai_vision",
+      extraction_notes: extractedData.extraction_notes || "Extracted using AI",
+    };
+  } catch (error) {
+    console.error("AI OCR failed, using fallback:", error);
+    return enhancedPatternExtraction(filename);
+  }
+}
+
 export {
   aiOCRExtraction,
-  checkForDuplicate,
   enhancedPatternExtraction,
-  normalizeCurrency,
-  normalizeMerchant,
-  parseDateRobust,
-  validateAndFixDate,
   imageUrlToBase64,
   withKeyProtection,
   SecureKeyStore,
+  parseDateRobust,
+  validateAndFixDate,
+  checkForDuplicate,
+  normalizeCurrency,
+  normalizeMerchant,
 };

@@ -172,6 +172,7 @@ export async function POST(request: Request) {
     const receipt = await prisma.receipt.create({
       data: {
         userId,
+        fileName : file_url.split("/").pop() || "",
         fileUrl: file_url,
         merchantName: merchant_name,
         receiptDate: new Date(receipt_date),

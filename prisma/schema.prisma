@@ -55,9 +55,11 @@ model Receipt {
   id           Int       @id @default(autoincrement())
   userId       Int       @map("user_id")
   fileUrl      String    @map("file_url") @db.Text
+  fileName     String    @map("file_name") @db.Text
   merchantName String    @map("merchant_name") @db.VarChar(255)
   receiptDate  DateTime  @map("receipt_date") @db.Date
   amount       Decimal   @db.Decimal(10, 2)
+  status       String    @default("pending") @db.VarChar(20)
   category     String    @db.VarChar(50)
   currency     String    @default("USD") @db.VarChar(3)
   note         String?   @db.Text
